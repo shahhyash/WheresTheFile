@@ -4,6 +4,11 @@
 #include <stdio.h>
 
 /*
+ *    Sends nbyte bytes from the filedescriptor fd and stores them in buf.
+ *    Returns 1 if successful. Otherwise returns a value according to the error.
+ */
+int better_send(int fd, char * buf, size_t nbyte, int flags, char * file, int line);
+/*
  *    Reads nbyte bytes from the filedescriptor filedes and stores them in buf.
  *    Returns 1 if successful. Otherwise returns a value according to the error.
  */

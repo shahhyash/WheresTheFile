@@ -1,6 +1,36 @@
 #include "fileIO.h"
 
+#include <netinet/in.h>
 #include <unistd.h>
+
+/*
+ *    Sends nbyte bytes from the filedescriptor fd and stores them in buf.
+ *    Returns 1 if successful. Otherwise returns a value according to the error.
+ */
+int better_send(int fd, char * buf, size_t nbyte, int flags, char * file, int line)
+{
+        ssize_t ret = 1;
+        int bytes_read = 0;
+        while (nbyte-bytes_read > 0 && ret != 0)
+        {
+                ret = send(fd, &buf[bytes_read], nbyte-bytes_read, flags);
+                if (ret > 0)
+                {
+                        bytes_read += ret;
+                }
+                else if (ret < 0)
+                {
+                        fprintf(stderr, "[better_send] Error. FILE: %s. Line: %d.\n", file, line);
+                        return ret;
+                }
+                else if (ret == 0 && nbyte-bytes_read != 0)
+                {
+                        fprintf(stderr, "[better_send] End of file before all bytes read. FILE: %s. Line: %d.\n", file, line);
+                        return ret;
+                }
+        }
+        return 1;
+}
 
 /*
  *    Reads nbyte bytes from the filedescriptor filedes and stores them in buf.
