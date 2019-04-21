@@ -171,6 +171,8 @@ int create_or_destroy(char * proj_name, int create)
  */
 int _add(char * proj_name, char * filename)
 {
+        // Remove if already in manifest
+        _remove(proj_name, filename);
         // Create projects folder if one does not already exist
         if (make_dir("projects_client", __FILE__, __LINE__) < 0)
                 return 1;
