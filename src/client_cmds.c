@@ -8,6 +8,7 @@
 #include <fcntl.h>              // open flags
 #include <arpa/inet.h>          // socket
 #include <netdb.h>              // gethostbyname
+#include <openssl/sha.h>        // Hash function
 
 /*
  *      Returns file descriptor to the socket as specified by the PORT and IP
@@ -142,16 +143,95 @@ int create_or_destroy(char * proj_name, int create)
  *      Adds filename to the .manifest in the project proj_name.
  *      Returns 1 on error, 0 on success.
  */
-int add(char * proj_name, char * filename)
+int _add(char * proj_name, char * filename)
 {
         // Create projects folder if one does not already exist
-        if (make_dir("projects_client") != 0)
+        if (make_dir("projects_client", __FILE__, __LINE__) < 0)
                 return 1;
-        char pj[strlen(proj_name) + strlen("projects_client/")];
-        sscanf(pj, "projects_client/%s", proj_name);
-        int fd = open(pj, O_RDWR, 00600);
+        int pj_len = strlen(filename) + strlen(proj_name) + strlen("projects_client/") + 2;
+        char pj[pj_len];
+        bzero(pj, pj_len);
+        sprintf(pj, "projects_client/%s/%s", proj_name, filename);
+        int fd_new_file = open(pj, O_RDWR, 00600);
+        if (fd_new_file < 0)
+        {
+                fprintf(stderr, "[add] Error opening %s. FILE: %s. LINE: %d.\n", filename, __FILE__, __LINE__);
+                return 1;
+        }
 
-        close(fd);
+        // Get file length
+        int file_length = lseek(fd_new_file, 0, SEEK_END);
+        lseek(fd_new_file, 0, SEEK_SET);
+        // Hash contents of file
+        char data[file_length+1];
+        bzero(data, file_length+1);
+        if (better_read(fd_new_file, data, file_length, __FILE__, __LINE__) != 1)
+                return 1;
+        unsigned char hash[SHA256_DIGEST_LENGTH];
+        SHA256((const unsigned char *) data, file_length, hash);
+        close(fd_new_file);
+
+        // Open manifest
+        char manifest[strlen("/.manifest") + strlen(proj_name) + strlen("projects_client/")];
+        sprintf(manifest, "projects_client/%s/.manifest", proj_name);
+        int fd_man = open(manifest, O_RDWR, 00600);
+        // Read version number
+        int i = 0;
+        while (TRUE)
+        {
+                char temp[2] = {0,0};
+                if (better_read(fd_man, temp, 1, __FILE__, __LINE__) != 1)
+                        return 1;
+                if (*temp == '\n')
+                        break;
+                i++;
+
+        }
+        lseek(fd_man, 0, SEEK_SET);
+        char ver_str[i+1];
+        bzero(ver_str, i+1);
+        i = 0;
+        while (TRUE)
+        {
+                char temp[2] = {0,0};
+                if (better_read(fd_man, temp, 1, __FILE__, __LINE__) != 1)
+                        return 1;
+                if (*temp == '\n')
+                        break;
+                ver_str[i] = *temp;
+        }
+        int line_length = strlen(ver_str) + 1 + strlen(pj) + 2;
+        char new_line[line_length];
+        bzero(new_line, line_length);
+        char hex_hash[SHA256_DIGEST_LENGTH*2+1];
+        bzero(hex_hash, SHA256_DIGEST_LENGTH*2+1);
+        int j;
+        for (j = 0; j < SHA256_DIGEST_LENGTH; j++)
+        {
+                char hex[3] = {0,0,0};
+                sprintf(hex, "%x", (int)hash[j]);
+                if (strlen(hex) == 1)
+                {
+                        hex_hash[2*j] = '0';
+                        hex_hash[2*j+1] = hex[0];
+                }
+                else
+                {
+                        hex_hash[2*j] = hex[0];
+                        hex_hash[2*j+1] = hex[1];
+                }
+        }
+        sprintf(new_line, "%s %s ", ver_str, pj);
+        lseek(fd_man, 0, SEEK_END);
+        if (better_write(fd_man, new_line, line_length-1, __FILE__, __LINE__) != 1)
+                return 1;
+        if (better_write(fd_man, hex_hash, SHA256_DIGEST_LENGTH*2, __FILE__, __LINE__) != 1)
+                return 1;
+        if (better_write(fd_man, "\n", 1, __FILE__, __LINE__) != 1)
+                return 1;
+
+        close(fd_man);
+        printf("File added successfully.\n");
         return 0;
 }
 
@@ -162,10 +242,10 @@ int add(char * proj_name, char * filename)
 int _remove(char * proj_name, char * filename)
 {
         // Create projects folder if one does not already exist
-        if (make_dir("projects_client") != 0)
+        if (make_dir("projects_client", __FILE__, __LINE__) != 0)
                 return 1;
         char pj[strlen(proj_name) + strlen("projects_client/")];
-        sscanf(pj, "projects_client/%s", proj_name);
+        sprintf(pj, "projects_client/%s", proj_name);
         int fd = open(pj, O_RDWR, 00600);
 
         close(fd);

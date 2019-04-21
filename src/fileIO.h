@@ -30,7 +30,7 @@ int file_exists(char * file);
  *      Make directory called dir_name if it does not exist.
  *      Returns 0 on success; 1 if dir exists, and -1 on other error in mkdir
  */
-int make_dir(char * dir_name);
+int make_dir(char * dir_name, char * file, int line);
 /*
  *      Recursively deletes directory dir and the contents inside
  */

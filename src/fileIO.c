@@ -28,7 +28,7 @@ int better_send(int fd, char * buf, size_t nbyte, int flags, char * file, int li
                 }
                 else if (ret == 0 && nbyte-bytes_read != 0)
                 {
-                        fprintf(stderr, "[better_send] End of file before all bytes read. FILE: %s. Line: %d.\n", file, line);
+                        fprintf(stderr, "[better_send] End of file before all bytes sent. FILE: %s. Line: %d.\n", file, line);
                         return ret;
                 }
         }
@@ -86,7 +86,7 @@ int better_write(int filedes, char * buf, size_t nbyte, char * file, int line)
                 }
                 else if (ret == 0 && nbyte-bytes_written != 0)
                 {
-                        fprintf(stderr, "[better_write] End of file before all bytes read. FILE: %s. Line: %d.\n", file, line);
+                        fprintf(stderr, "[better_write] End of file before all bytes written. FILE: %s. Line: %d.\n", file, line);
                         return ret;
                 }
         }
@@ -118,19 +118,19 @@ int file_exists(char * file)
  *      Make directory called dir_name if it does not exist.
  *      Returns 0 on success; 1 if dir exists, and -1 on other error in mkdir
  */
-int make_dir(char * dir_name)
+int make_dir(char * dir_name, char * file, int line)
 {
         if (!dir_exists(dir_name))
         {
                 if (mkdir(dir_name, 00777) == -1)
                 {
-                        fprintf(stderr, "[make_dir] Error creating new project directory. FILE: %s. LINE: %d.\n", __FILE__, __LINE__);
+                        fprintf(stderr, "[make_dir] Error creating new project directory. FILE: %s. LINE: %d.\n", file, line);
                         return -1;
                 }
         }
         else
         {
-                fprintf(stderr, "[make_dir] Project already exists.\n");
+                fprintf(stderr, "[make_dir] Project already exists. FILE: %s. LINE: %d.\n", file, line);
                 return 1;
         }
         return 0;

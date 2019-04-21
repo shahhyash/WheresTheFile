@@ -5,7 +5,7 @@
  *      Adds filename to the .manifest in the project proj_name.
  *      Returns 1 on error, 0 on success.
  */
-int add(char * proj_name, char * filename);
+int _add(char * proj_name, char * filename);
 /*
  *      Sends create (if create is TRUE) or destroy (if create is FALSE) commands to the
  *      server with the corresponding proj_name. Returns 0 on sucess; 1 otherwise.

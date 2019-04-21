@@ -7,8 +7,6 @@
 #include <unistd.h>             // FILE IO
 #include "flags.h"
 
-#include <openssl/sha.h>        // Hash function
-
 void usage()
 {
         fprintf(stderr, "Usage: ./WTF <PORT NUMBER>\n");
@@ -57,7 +55,7 @@ int main(int argc, char * argv[])
                         fprintf(stderr, "Usage: ./WTF <project_name> <filename>\n");
                         exit(EXIT_FAILURE);
                 }
-                return add(argv[2], argv[3]);
+                return _add(argv[2], argv[3]);
         }
         else if (strcmp(argv[1], "remove") == 0)
         {

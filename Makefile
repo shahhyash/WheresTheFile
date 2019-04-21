@@ -5,12 +5,12 @@ FOLDERS=bin build projects projects_client
 
 all: build/server_cmds.o build/client_cmds.o build/lib.a $(FOLDERS)
 	$(CC) $(CFLAGS) -o bin/WTFserver_main src/server_main.c build/server_cmds.o build/lib.a -lpthread
-	$(CC) $(CFLAGS) -o bin/WTF src/client_main.c build/client_cmds.o build/lib.a
+	$(CC) $(CFLAGS) -o bin/WTF src/client_main.c build/client_cmds.o build/lib.a -lssl -lcrypto
 
-build/server_cmds.o:
+build/server_cmds.o: src/server_cmds.c src/server_cmds.h build
 	$(CC) $(CFLAGS) -c src/server_cmds.c -o build/server_cmds.o
 
-build/client_cmds.o:
+build/client_cmds.o: src/client_cmds.c src/client_cmds.h build
 	$(CC) $(CFLAGS) -c src/client_cmds.c -o build/client_cmds.o
 
 build/lib.a: build/fileIO.o build
