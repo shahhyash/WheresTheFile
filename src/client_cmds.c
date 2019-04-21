@@ -129,13 +129,39 @@ int create_or_destroy(char * proj_name, int create)
                 cmd = "des";
         sprintf(msg, "%s%s%d%s", cmd, leading_zeros, proj_name_length, proj_name);
         if (better_send(sock , msg , strlen(msg), 0, __FILE__, __LINE__) <= 0)
+                return 1;
+        if (create)
         {
-                fprintf(stderr, "[create] Error returned from better_send.\n");
+                // Read length of size of file
+                char file_size_length_str[4] = {0,0,0,0};
+                if (better_read(sock , file_size_length_str , 3, __FILE__, __LINE__) <= 0)
+                        return 1;
+                int file_size_length = 1;
+                sscanf(file_size_length_str, "%d", &file_size_length);
+                // Read size of file
+                char file_size_str[file_size_length+1];
+                bzero(file_size_str, file_size_length+1);
+                if (better_read(sock , file_size_str , file_size_length, __FILE__, __LINE__) <= 0)
+                        return 1;
+                // Read file bytes
+                int file_size;
+                sscanf(file_size_str, "%d", &file_size);
+                char file[file_size+1];
+                bzero(file, file_size+1);
+                if (better_read(sock , file , file_size, __FILE__, __LINE__) <= 0)
+                        return 1;
+                // Create .manifest
+                char manifest[strlen("/.manifest") + strlen(proj_name) + strlen("projects_client/")];
+                sprintf(manifest, "projects_client/%s/.manifest", proj_name);
+                int fd_man = open(manifest, O_WRONLY | O_CREAT | O_TRUNC, 00600);
+                if (better_write(fd_man, file, file_size, __FILE__, __LINE__))
+                        return 1;
+                close(fd_man);
         }
-        char buffer[1024] = {0};
+        char buffer[30] = {0};
         printf("-->Sent message successfully.\n");
         read( sock , buffer, 1024);
-        printf("Message from server:\t%s\n",buffer );
+        printf("Message from server:\t%s\n", buffer);
         return 0;
 }
 
@@ -262,7 +288,8 @@ int _remove(char * proj_name, char * filename)
         better_read(fd, buf, size, __FILE__, __LINE__);
         printf("pj: %s\nbuf: %s\n", name, buf);
         char * line = strstr(buf, name);
-        if (line == NULL){
+        if (line == NULL)
+        {
                 fprintf(stderr, "[_remove] %s not in manifest. FILE: %s. LINE: %d.\n", filename, __FILE__, __LINE__);
                 return 1;
         }
@@ -270,9 +297,7 @@ int _remove(char * proj_name, char * filename)
         int i = num_bytes;
         int end;
         while (buf[i] != '\n')
-        {
                 i++;
-        }
         end = i+1;
         printf("%d\n", num_bytes);
         close(fd);

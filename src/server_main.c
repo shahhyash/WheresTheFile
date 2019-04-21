@@ -12,7 +12,7 @@
 #include <unistd.h>             // FILE IO
 //#include <errno.h>              // Read Errors set
 
-#define QUEUE_SIZE 3
+#define QUEUE_SIZE 20
 
 /*
  *      Prints usage to stdout
@@ -74,7 +74,7 @@ void * client_comm(void * args)
         printf("Project name: %s\n", proj_name);
         if (strcmp(command, "cre") == 0)
         {
-                if (create(proj_name))
+                if (create(sd, proj_name))
                 {
                         if (better_send(sd, "Error: Project already exists.", 30, 0, __FILE__, __LINE__) <= 0)
                         {

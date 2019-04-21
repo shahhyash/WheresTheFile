@@ -6,6 +6,8 @@
 #include <unistd.h>
 #include <sys/stat.h>           // check IS_DIR flags
 #include <dirent.h>             // Directory
+#include <fcntl.h>              // open flags
+#include <zlib.h>
 /*
  *    Sends nbyte bytes from the filedescriptor fd and stores them in buf.
  *    Returns 1 if successful. Otherwise returns a value according to the error.
@@ -174,4 +176,56 @@ void remove_dir(char * dir)
                 item = readdir(dirdes);
         }
         remove(dir);
+}
+/*
+ *      Sends data stored in file filename through socket descriptor sd.
+ *      Returns 0 on success; 1 otherwise.
+ *      Protocol: (i) Sends 3 digits that is the number of digits of the file size.
+ *                (ii) Send file size.
+ *                (iii) Sends file bytes.
+ */
+int send_file(int sd, char * filename)
+{
+        int fd = open(filename, O_RDONLY, 00600);
+        int fd_size = lseek(fd, 0, SEEK_END);
+        char buf[fd_size+1];
+        bzero(buf, fd_size+1);
+        lseek(fd, 0, SEEK_SET);
+        if (better_read(fd, buf, fd_size, __FILE__, __LINE__) != 1)
+                return 1;
+        int num_digits = 0, digits = fd_size;
+        while (digits != 0)
+        {
+                num_digits++;
+                digits /= 10;
+        }
+        // Send three digit length of file size
+        char file_size_str[4] = {'0','0','0',0};
+        if (num_digits < 10)
+                sprintf(&file_size_str[2], "%d", num_digits);
+        else if (num_digits < 100)
+                sprintf(&file_size_str[1], "%d", num_digits);
+        else
+                sprintf(&file_size_str[0], "%d", num_digits);
+        printf("sending %s\n", file_size_str);
+        if (better_send(sd, file_size_str, 3, 0, __FILE__, __LINE__) != 1)
+                return 1;
+        // Send file size
+        char digits_str[num_digits+1];
+        bzero(digits_str, num_digits+1);
+        sprintf(digits_str, "%d", fd_size);
+        if (better_send(sd, digits_str, num_digits, 0, __FILE__, __LINE__) != 1)
+                return 1;
+        // Send file bytes
+        if (better_send(sd, buf, fd_size, 0, __FILE__, __LINE__) != 1)
+                return 1;
+        return 0;
+
+}
+/*
+ *
+ */
+char * _compress(char * filename)
+{
+        return NULL;
 }

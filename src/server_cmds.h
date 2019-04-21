@@ -5,7 +5,7 @@
  *      Creates directory of name proj_name.
  *      Returns 1 on error; 0 otherwise.
  */
-int create(char * proj_name);
+int create(int s, char * proj_name);
 /*
  *      Deletes directory of name proj_name.
  *      Returns 1 on error; 0 otherwise.

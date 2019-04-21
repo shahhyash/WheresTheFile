@@ -35,5 +35,13 @@ int make_dir(char * dir_name, char * file, int line);
  *      Recursively deletes directory dir and the contents inside
  */
 void remove_dir(char * dir);
+/*
+ *      Sends data stored in file filename through socket descriptor sd.
+ *      Returns 0 on success; 1 otherwise.
+ *      Protocol: (i) Sends 3 digits that is the number of digits of the file size.
+ *                (ii) Send file size.
+ *                (iii) Sends file bytes.
+ */
+int send_file(int sd, char * filename);
 
 #endif

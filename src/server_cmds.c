@@ -10,7 +10,7 @@
  *      Creates directory of name proj_name.
  *      Returns 1 on error; 0 otherwise.
  */
-int create(char * proj_name)
+int create(int sd, char * proj_name)
 {
         // Create projects folder if one does not already exist
         if (make_dir("projects", __FILE__, __LINE__) < 0)
@@ -34,6 +34,8 @@ int create(char * proj_name)
                 close(fd);
                 return 1;
         }
+        if (send_file(sd, manifest))
+                return 1;
         close(fd);
         return 0;
 }

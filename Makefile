@@ -4,7 +4,7 @@ OUTPUTS=build bin
 FOLDERS=bin build projects projects_client
 
 all: build/server_cmds.o build/client_cmds.o build/lib.a $(FOLDERS)
-	$(CC) $(CFLAGS) -o bin/WTFserver_main src/server_main.c build/server_cmds.o build/lib.a -lpthread
+	$(CC) $(CFLAGS) -o bin/WTFserver src/server_main.c build/server_cmds.o build/lib.a -lpthread
 	$(CC) $(CFLAGS) -o bin/WTF src/client_main.c build/client_cmds.o build/lib.a -lssl -lcrypto
 
 build/server_cmds.o: src/server_cmds.c src/server_cmds.h build
