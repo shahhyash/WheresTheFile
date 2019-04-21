@@ -175,7 +175,13 @@ int _add(char * proj_name, char * filename)
         char manifest[strlen("/.manifest") + strlen(proj_name) + strlen("projects_client/")];
         sprintf(manifest, "projects_client/%s/.manifest", proj_name);
         int fd_man = open(manifest, O_RDWR, 00600);
+        if (fd_man < 0)
+        {
+                fprintf(stderr, "[add] Error opening %s. FILE: %s. LINE: %d.\n", manifest, __FILE__, __LINE__);
+                return 1;
+        }
         // Read version number
+        /*
         int i = 0;
         while (TRUE)
         {
@@ -200,9 +206,8 @@ int _add(char * proj_name, char * filename)
                         break;
                 ver_str[i] = *temp;
         }
-        int line_length = strlen(ver_str) + 1 + strlen(pj) + 2;
-        char new_line[line_length];
-        bzero(new_line, line_length);
+        */
+        char * ver_str = "1";   // Version 1 since just added
         char hex_hash[SHA256_DIGEST_LENGTH*2+1];
         bzero(hex_hash, SHA256_DIGEST_LENGTH*2+1);
         int j;
@@ -221,17 +226,15 @@ int _add(char * proj_name, char * filename)
                         hex_hash[2*j+1] = hex[1];
                 }
         }
-        sprintf(new_line, "%s %s ", ver_str, pj);
+        int line_length = strlen(ver_str) + 1 + strlen(pj) + 1 + strlen(hex_hash) + 2;
+        char new_line[line_length];
+        bzero(new_line, line_length);
+        sprintf(new_line, "%s %s %s\n", ver_str, pj, hex_hash);
         lseek(fd_man, 0, SEEK_END);
         if (better_write(fd_man, new_line, line_length-1, __FILE__, __LINE__) != 1)
                 return 1;
-        if (better_write(fd_man, hex_hash, SHA256_DIGEST_LENGTH*2, __FILE__, __LINE__) != 1)
-                return 1;
-        if (better_write(fd_man, "\n", 1, __FILE__, __LINE__) != 1)
-                return 1;
-
         close(fd_man);
-        printf("File added successfully.\n");
+        printf("[_add] File added successfully.\n");
         return 0;
 }
 
@@ -242,12 +245,41 @@ int _add(char * proj_name, char * filename)
 int _remove(char * proj_name, char * filename)
 {
         // Create projects folder if one does not already exist
-        if (make_dir("projects_client", __FILE__, __LINE__) != 0)
+        if (make_dir("projects_client", __FILE__, __LINE__) < 0)
                 return 1;
-        char pj[strlen(proj_name) + strlen("projects_client/")];
-        sprintf(pj, "projects_client/%s", proj_name);
+        int pj_len = strlen(filename) + strlen(proj_name) + strlen("projects_client/") + 2;
+        char pj[pj_len];
+        bzero(pj, pj_len);
+        sprintf(pj, "projects_client/%s/.manifest", proj_name);
+        int length = strlen(filename) + strlen(proj_name) + strlen("projects_client/") + 2;
+        char name[length];
+        bzero(name, length);
+        sprintf(name, "projects_client/%s/%s", proj_name, filename);
         int fd = open(pj, O_RDWR, 00600);
-
+        int size = lseek(fd, 0, SEEK_END);
+        lseek(fd, 0, SEEK_SET);
+        char buf[size];
+        better_read(fd, buf, size, __FILE__, __LINE__);
+        printf("pj: %s\nbuf: %s\n", name, buf);
+        char * line = strstr(buf, name);
+        if (line == NULL){
+                fprintf(stderr, "[_remove] %s not in manifest. FILE: %s. LINE: %d.\n", filename, __FILE__, __LINE__);
+                return 1;
+        }
+        int num_bytes = line - &buf[0];
+        int i = num_bytes;
+        int end;
+        while (buf[i] != '\n')
+        {
+                i++;
+        }
+        end = i+1;
+        printf("%d\n", num_bytes);
         close(fd);
+        int fd1 = open(pj, O_RDWR | O_TRUNC, 00600);
+        better_write(fd1, buf, num_bytes-2, __FILE__, __LINE__);
+        better_write(fd1, &buf[end], strlen(buf)-end, __FILE__, __LINE__);
+
+        close(fd1);
         return 0;
 }
