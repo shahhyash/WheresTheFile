@@ -18,5 +18,22 @@ int better_read (int filedes, char * buf, size_t nbyte, char * file, int line);
  *    Returns 1 if successful. Otherwise returns a value according to the error.
  */
 int better_write(int filedes, char * buf, size_t nbyte, char * file, int line);
+/*
+ *      Returns TRUE if directory exists, FALSE otherwise.
+ */
+int dir_exists(const char * dir);
+/*
+ *      Returns TRUE if file exists, FALSE otherwise.
+ */
+int file_exists(char * file);
+/*
+ *      Make directory called dir_name if it does not exist.
+ *      Returns 0 on success; 1 if dir exists, and -1 on other error in mkdir
+ */
+int make_dir(char * dir_name);
+/*
+ *      Recursively deletes directory dir and the contents inside
+ */
+void remove_dir(char * dir);
 
 #endif
