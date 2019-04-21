@@ -1,18 +1,16 @@
+#include "server_main.h"
+#include "server_cmds.h"
+#include "fileIO.h"             // Socket + file IO
+#include "flags.h"
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <pthread.h>
-#include <sys/socket.h>
-#include <sys/stat.h>
-
-#include <dirent.h>
-#include <netinet/in.h>
-#include <unistd.h>
-#include "fileIO.h"
-#include "server.h"
-#include <fcntl.h>
-#include <errno.h>
-
+#include <pthread.h>            // Threading
+#include <sys/socket.h>         // ?
+#include <netinet/in.h>         // Socket
+#include <unistd.h>             // FILE IO
+//#include <errno.h>              // Read Errors set
 
 #define QUEUE_SIZE 3
 
@@ -49,110 +47,6 @@ char * read_project_name(int sd)
                 return NULL;
         }
         return project_name;
-}
-
-/*
- *      Returns TRUE if directory exists, FALSE otherwise.
- */
-int dir_exists(const char * dir)
-{
-    struct stat stats;
-    stat(dir, &stats);
-    // Check for file existence
-    if (S_ISDIR(stats.st_mode))
-        return TRUE;
-    return FALSE;
-}
-
-/*
- *      Returns TRUE if file exists, FALSE otherwise.
- */
-int file_exists(char * file)
-{
-        if (access(file, F_OK) == -1)
-                return FALSE;
-        return TRUE;
-}
-
-/*
- *      Creates directory of name proj_name.
- *      Returns 1 on error; 0 otherwise.
- */
-int create(char * proj_name)
-{
-        if (dir_exists(proj_name))
-        {
-                fprintf(stderr, "[create] Project already exists.\n");
-                return 1;
-        }
-        mkdir(proj_name, 00777);
-        // Init manifest
-        char manifest[strlen(proj_name)+11];
-        bzero(manifest, strlen(proj_name)+11);
-        sprintf(manifest, "%s/.manifest", proj_name);
-        int fd = open(manifest, O_WRONLY | O_CREAT | O_TRUNC, 00600);
-        if (better_write(fd, "1", 1, __FILE__, __LINE__) <= 0)
-        {
-                fprintf(stderr, "[create] Error returned by better_write. FILE: %s. LINE: %d\n", __FILE__, __LINE__);
-                close(fd);
-                return 1;
-        }
-        close(fd);
-        return 0;
-}
-
-void remove_dir(char * dir)
-{
-        DIR * dirdes = opendir(dir);
-        struct dirent * item = readdir(dirdes);
-        int no_items = FALSE;
-        // loop through directory until no further items are left
-        while (item != NULL)
-        {
-                while (!strcmp(item->d_name, ".") || !strcmp(item->d_name, ".."))
-		{
-			item = readdir(dirdes);
-			if (!item)
-			{
-				no_items = TRUE;
-				break;
-			}
-		}
-		if (no_items)
-			break;
-                char new_name[strlen(dir) + strlen(item->d_name)+2];
-                bzero(new_name, strlen(dir) + strlen(item->d_name)+2);
-                sprintf(new_name, "%s/%s", dir, item->d_name);
-                // if item is a directory, recursively search all of it's children
-                if (item->d_type == DT_DIR)
-                {
-
-                        remove_dir(new_name);
-                }
-                // if item is a regular file delete it
-                else if (item->d_type == DT_REG)
-                {
-                        remove(new_name);
-                }
-                item = readdir(dirdes);
-        }
-        remove(dir);
-}
-
-/*
- *      Deletes directory of name proj_name.
- *      Returns 1 on error; 0 otherwise.
- */
-int destroy(char * proj_name)
-{
-        if (!dir_exists(proj_name))
-        {
-                fprintf(stderr, "[create] Project does not exist.\n");
-                return 1;
-        }
-        printf("removing directory: %s\n", proj_name);
-        remove_dir(proj_name);
-        return 0;
 }
 
 /*
@@ -220,21 +114,6 @@ void * client_comm(void * args)
                                 pthread_exit(NULL);
                         }
                 }
-        }
-        else if (strcmp(command, "add") == 0 || strcmp(command, "rem") == 0)
-        {
-                int remove = TRUE;
-                if (strcmp(command, "add") == 0)
-                        remove = FALSE;
-                char * proj_name = read_project_name(sd);
-                if (proj_name == NULL)
-                {
-                        fprintf(stderr, "Error\n");
-                        close(sd);
-                        pthread_exit(NULL);
-                }
-                printf("Project name: %s\n", proj_name);
-                free(proj_name);
         }
         else
         {

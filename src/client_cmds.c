@@ -1,24 +1,24 @@
-#include "client.h"
+#include "client_cmds.h"
+#include "flags.h"
+#include "fileIO.h"             // Socket + file IO
 #include <stdlib.h>
 #include <stdio.h>
-#include <unistd.h>
-#include "fileIO.h"
 #include <string.h>
-#include <fcntl.h>
-#include <netdb.h>
-#include <arpa/inet.h>
+#include <unistd.h>             // FILE IO
+#include <fcntl.h>              // open flags
+#include <arpa/inet.h>          // socket
+#include <netdb.h>              // gethostbyname
 
-void usage()
-{
-        fprintf(stderr, "Usage: ./WTF <PORT NUMBER>\n");
-        exit(EXIT_FAILURE);
-}
-
+/*
+ *      Returns file descriptor to the socket as specified by the PORT and IP
+ *      in .configure. Returns -1 on error.
+ */
 int init_socket()
 {
         char IP_str[16];
         int PORT;
-        get_configure(IP_str, &PORT);
+        if (get_configure(IP_str, &PORT))
+                return -1;
         struct hostent * host = gethostbyname(IP_str);
         char * IP = host->h_name;
         //struct sockaddr_in address;
@@ -51,6 +51,10 @@ int init_socket()
         return sock;
 }
 
+/*
+ *      Writes IP and port to .configure file. Overwrites .configure if it already
+ *      exists. Returns 0 on success; 1 otherwise.
+ */
 int set_configure(char * IP, char * port)
 {
         int fd = open(".configure", O_WRONLY | O_CREAT | O_TRUNC, 00600);
@@ -73,8 +77,17 @@ int set_configure(char * IP, char * port)
         return 0;
 }
 
+/*
+ *      Reads IP and PORT from .configure file and stores them in the passed pointers.
+ *      Returns 0 on sucess; 1 otherwise.
+ */
 int get_configure(char * IP, int * PORT)
 {
+        if (!file_exists(".configure"))
+        {
+                fprintf(stderr, "[get_configure] No .configure file found.\n");
+                return 1;
+        }
         int fd = open(".configure", O_RDONLY, 00600);
         int size = lseek(fd, 0, SEEK_END);
         char buffer[size+1];
@@ -95,6 +108,10 @@ int get_configure(char * IP, int * PORT)
         return 0;
 }
 
+/*
+ *      Sends create (if create is TRUE) or destroy (if create is FALSE) commands to the
+ *      server with the corresponding proj_name. Returns 0 on sucess; 1 otherwise.
+ */
 int create_or_destroy(char * proj_name, int create)
 {
         int sock = init_socket();
@@ -121,42 +138,36 @@ int create_or_destroy(char * proj_name, int create)
         return 0;
 }
 
-int main(int argc, char * argv[])
+/*
+ *      Adds filename to the .manifest in the project proj_name.
+ *      Returns 1 on error, 0 on success.
+ */
+int add(char * proj_name, char * filename)
 {
+        // Create projects folder if one does not already exist
+        if (make_dir("projects_client") != 0)
+                return 1;
+        char pj[strlen(proj_name) + strlen("projects_client/")];
+        sscanf(pj, "projects_client/%s", proj_name);
+        int fd = open(pj, O_RDWR, 00600);
 
+        close(fd);
+        return 0;
+}
 
-        if (argc < 3)
-        {
-                usage();
-        }
-        if (strcmp(argv[1], "configure") == 0)
-        {
-                if (argc != 4)
-                {
-                        usage();
-                }
-                return set_configure(argv[2], argv[3]);
-        }
-        else if (strcmp(argv[1], "create") == 0)
-        {
-                return create_or_destroy(argv[2], TRUE);
-        }
-        else if (strcmp(argv[1], "destroy") == 0)
-        {
-                return create_or_destroy(argv[2], FALSE);
-        }
-        else
-        {
-                int sock = init_socket();
+/*
+ *      Removes filename to the .manifest in the project proj_name.
+ *      Returns 1 on error, 0 on success.
+ */
+int _remove(char * proj_name, char * filename)
+{
+        // Create projects folder if one does not already exist
+        if (make_dir("projects_client") != 0)
+                return 1;
+        char pj[strlen(proj_name) + strlen("projects_client/")];
+        sscanf(pj, "projects_client/%s", proj_name);
+        int fd = open(pj, O_RDWR, 00600);
 
-                char *msg = "cre004test";
-
-                char buffer[1024] = {0};
-                better_send(sock , msg , strlen(msg) , 0, __FILE__, __LINE__);
-
-                printf("-->Sent message successfully.\n");
-                read( sock , buffer, 1024);
-                printf("Message from server:\t%s\n",buffer );
-        }
+        close(fd);
         return 0;
 }
