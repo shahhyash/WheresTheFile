@@ -43,5 +43,13 @@ void remove_dir(char * dir);
  *                (iii) Sends file bytes.
  */
 int send_file(int sd, char * filename);
+/*
+ *
+ */
+char * _compress(char * filename);
+/*
+ *
+ */
+char * _decompress(char * filename, int orig_size);
 
 #endif

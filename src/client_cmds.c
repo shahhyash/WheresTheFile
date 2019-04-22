@@ -151,8 +151,8 @@ int create_or_destroy(char * proj_name, int create)
                 if (better_read(sock , file , file_size, __FILE__, __LINE__) <= 0)
                         return 1;
                 // Create .manifest
-                char manifest[strlen("/.manifest") + strlen(proj_name) + strlen("projects_client/")];
-                sprintf(manifest, "projects_client/%s/.manifest", proj_name);
+                char manifest[strlen("/.manifest") + strlen(proj_name)];
+                sprintf(manifest, "%s/.manifest", proj_name);
                 int fd_man = open(manifest, O_WRONLY | O_CREAT | O_TRUNC, 00600);
                 if (better_write(fd_man, file, file_size, __FILE__, __LINE__))
                         return 1;
@@ -172,14 +172,12 @@ int create_or_destroy(char * proj_name, int create)
 int _add(char * proj_name, char * filename)
 {
         // Remove if already in manifest
-        _remove(proj_name, filename);
-        // Create projects folder if one does not already exist
-        if (make_dir("projects_client", __FILE__, __LINE__) < 0)
-                return 1;
-        int pj_len = strlen(filename) + strlen(proj_name) + strlen("projects_client/") + 2;
+        if(!_remove(proj_name, filename))
+                printf("[_add] File already in .manifest... replacing...\n");
+        int pj_len = strlen(filename) + strlen(proj_name) + 2;
         char pj[pj_len];
         bzero(pj, pj_len);
-        sprintf(pj, "projects_client/%s/%s", proj_name, filename);
+        sprintf(pj, "%s/%s", proj_name, filename);
         int fd_new_file = open(pj, O_RDWR, 00600);
         if (fd_new_file < 0)
         {
@@ -200,8 +198,8 @@ int _add(char * proj_name, char * filename)
         close(fd_new_file);
 
         // Open manifest
-        char manifest[strlen("/.manifest") + strlen(proj_name) + strlen("projects_client/")];
-        sprintf(manifest, "projects_client/%s/.manifest", proj_name);
+        char manifest[strlen("/.manifest") + strlen(proj_name)];
+        sprintf(manifest, "%s/.manifest", proj_name);
         int fd_man = open(manifest, O_RDWR, 00600);
         if (fd_man < 0)
         {
@@ -272,17 +270,14 @@ int _add(char * proj_name, char * filename)
  */
 int _remove(char * proj_name, char * filename)
 {
-        // Create projects folder if one does not already exist
-        if (make_dir("projects_client", __FILE__, __LINE__) < 0)
-                return 1;
-        int pj_len = strlen(filename) + strlen(proj_name) + strlen("projects_client/") + 2;
+        int pj_len = strlen(filename) + strlen(proj_name) + 2;
         char pj[pj_len];
         bzero(pj, pj_len);
-        sprintf(pj, "projects_client/%s/.manifest", proj_name);
-        int length = strlen(filename) + strlen(proj_name) + strlen("projects_client/") + 2;
+        sprintf(pj, "%s/.manifest", proj_name);
+        int length = strlen(filename) + strlen(proj_name) + 2;
         char name[length];
         bzero(name, length);
-        sprintf(name, "projects_client/%s/%s", proj_name, filename);
+        sprintf(name, "%s/%s", proj_name, filename);
         int fd = open(pj, O_RDWR, 00600);
         int size = lseek(fd, 0, SEEK_END);
         lseek(fd, 0, SEEK_SET);
@@ -308,5 +303,20 @@ int _remove(char * proj_name, char * filename)
         better_write(fd1, &buf[end], strlen(buf)-end, __FILE__, __LINE__);
 
         close(fd1);
+        printf("[_add] File removed successfully.\n");
+        return 0;
+}
+
+/*
+ *
+ */
+int checkout(char * proj_name)
+{
+        if (dir_exists(proj_name))
+        {
+                fprintf(stderr, "[checkout] Project already exists locally.\n");
+                return 1;
+        }
+        
         return 0;
 }

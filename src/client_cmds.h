@@ -31,5 +31,9 @@ int set_configure(char * IP, char * port);
  *      Returns 1 on error, 0 on success.
  */
 int _remove(char * proj_name, char * filename);
+/*
+ *
+ */
+int checkout(char * proj_name);
 
 #endif

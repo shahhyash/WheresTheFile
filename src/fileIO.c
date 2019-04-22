@@ -1,6 +1,7 @@
 #include "fileIO.h"
 #include "flags.h"
 
+#include <stdlib.h>
 #include <string.h>
 #include <netinet/in.h>
 #include <unistd.h>
@@ -227,5 +228,79 @@ int send_file(int sd, char * filename)
  */
 char * _compress(char * filename)
 {
+        int fd = open(filename, O_RDONLY, 00600);
+        int size = lseek(fd, 0, SEEK_END);
+        lseek(fd, 0, SEEK_SET);
+        char buf[size+1];
+        bzero(buf, size+1);
+        if (better_read(fd, buf, size, __FILE__, __LINE__) != 1)
+                return NULL;
+        close(fd);
+        char buf_compress[size+1];
+        bzero(buf_compress, size+1);
+        // zlib struct
+        z_stream defstream;
+        defstream.zalloc = Z_NULL;
+        defstream.zfree = Z_NULL;
+        defstream.opaque = Z_NULL;
+        // setup "a" as the input and "b" as the compressed output
+        defstream.avail_in = (uInt)size+1; // size of input, string + terminator
+        defstream.next_in = (Bytef *)buf; // input char array
+        defstream.avail_out = (uInt)size+1; // size of output
+        defstream.next_out = (Bytef *)buf_compress; // output char array
+        // the actual compression work.
+        deflateInit(&defstream, Z_BEST_COMPRESSION);
+        deflate(&defstream, Z_FINISH);
+        deflateEnd(&defstream);
+
+        // This is one way of getting the size of the output
+        printf("Compressed size is: %lu vs. original %d\n", defstream.total_out, size);
+        printf("Compressed string is: %s\n", buf_compress);
+        /*
+        char * compressed = (char *) malloc((strlen(filename)+1size+1)*sizeof(char));
+        bzero(compressed, strlen(compressed)+1);
+        sprintf(compressed, "")
+        return compressed;
+        */ return NULL;
+}
+char * recursive_compress(char * filename)
+{
+        if (dir_exists(filename))
+        //
+        {
+
+        }
+        else
+        {
+                return _compress(filename);
+        }
         return NULL;
+}
+/*
+ *
+ */
+char * _decompress(char * buf, int orig_size)
+{
+        char * decompressed = (char *) malloc(sizeof(char) * orig_size+1);
+        bzero(decompressed, orig_size+1);
+        // zlib struct
+        z_stream infstream;
+        infstream.zalloc = Z_NULL;
+        infstream.zfree = Z_NULL;
+        infstream.opaque = Z_NULL;
+        // setup "b" as the input and "c" as the compressed output
+        infstream.avail_in = (uInt)strlen(buf); // size of input
+        infstream.next_in = (Bytef *)buf; // input char array
+        infstream.avail_out = (uInt)orig_size; // size of output
+        infstream.next_out = (Bytef *)decompressed; // output char array
+
+        // the actual DE-compression work.
+        inflateInit(&infstream);
+        inflate(&infstream, Z_NO_FLUSH);
+        inflateEnd(&infstream);
+
+        printf("Uncompressed size is: %lu\n", strlen(decompressed));
+        printf("Uncompressed string is: %s\n", decompressed);
+        return decompressed;
+
 }

@@ -1,11 +1,11 @@
 CC=gcc
 CFLAGS=-Werror -Wall -g -fsanitize=address -std=gnu90
 OUTPUTS=build bin
-FOLDERS=bin build projects projects_client
+FOLDERS=bin build projects
 
 all: build/server_cmds.o build/client_cmds.o build/lib.a $(FOLDERS)
-	$(CC) $(CFLAGS) -o bin/WTFserver src/server_main.c build/server_cmds.o build/lib.a -lpthread
-	$(CC) $(CFLAGS) -o bin/WTF src/client_main.c build/client_cmds.o build/lib.a -lssl -lcrypto
+	$(CC) $(CFLAGS) -o bin/WTFserver src/server_main.c build/server_cmds.o build/lib.a -lpthread -lz
+	$(CC) $(CFLAGS) -o bin/WTF src/client_main.c build/client_cmds.o build/lib.a -lssl -lcrypto -lz
 
 build/server_cmds.o: src/server_cmds.c src/server_cmds.h build
 	$(CC) $(CFLAGS) -c src/server_cmds.c -o build/server_cmds.o
@@ -27,9 +27,6 @@ bin:
 
 projects:
 	mkdir projects
-
-projects_client:
-	mkdir projects_client
 
 clean:
 	rm -r $(OUTPUTS)

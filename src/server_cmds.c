@@ -6,6 +6,16 @@
 #include <unistd.h>             // FILE IO
 #include <fcntl.h>              // open flags
 
+
+/*
+ *
+ */
+int checkout(int sd, char * proj_name)
+{
+        
+        return 0;
+}
+
 /*
  *      Creates directory of name proj_name.
  *      Returns 1 on error; 0 otherwise.
