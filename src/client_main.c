@@ -23,7 +23,7 @@ int main(int argc, char * argv[])
         {
                 if (argc != 4)
                 {
-                        fprintf(stderr, "Usage: ./WTF <PORT NUMBER>\n");
+                        fprintf(stderr, "Usage: ./WTF configure <IP ADDRESS> <PORT NUMBER>\n");
                         exit(EXIT_FAILURE);
                 }
                 return set_configure(argv[2], argv[3]);
@@ -32,7 +32,7 @@ int main(int argc, char * argv[])
         {
                 if (argc != 3)
                 {
-                        fprintf(stderr, "Usage: ./WTF <project_name>\n");
+                        fprintf(stderr, "Usage: ./WTF create <project_name>\n");
                         exit(EXIT_FAILURE);
                 }
                 return create_or_destroy(argv[2], TRUE);
@@ -41,7 +41,7 @@ int main(int argc, char * argv[])
         {
                 if (argc != 3)
                 {
-                        fprintf(stderr, "Usage: ./WTF <project_name>\n");
+                        fprintf(stderr, "Usage: ./WTF destroy <project_name>\n");
                         exit(EXIT_FAILURE);
                 }
                 return create_or_destroy(argv[2], FALSE);
@@ -50,7 +50,7 @@ int main(int argc, char * argv[])
         {
                 if (argc != 4)
                 {
-                        fprintf(stderr, "Usage: ./WTF <project_name> <filename>\n");
+                        fprintf(stderr, "Usage: ./WTF add <project_name> <filename>\n");
                         exit(EXIT_FAILURE);
                 }
                 return _add(argv[2], argv[3]);
@@ -59,10 +59,19 @@ int main(int argc, char * argv[])
         {
                 if (argc != 4)
                 {
-                        fprintf(stderr, "Usage: ./WTF <project_name> <filename>\n");
+                        fprintf(stderr, "Usage: ./WTF remove <project_name> <filename>\n");
                         exit(EXIT_FAILURE);
                 }
                 return _remove(argv[2], argv[3]);
+        }
+        else if (strcmp(argv[1], "update") == 0)
+        {
+                if (argc != 4)
+                {
+                        fprintf(stderr, "Usage: ./WTF update <project_name>\n");
+                        exit(EXIT_FAILURE);
+                }
+                return _update(argv[2]);
         }
         else
         {
