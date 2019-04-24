@@ -15,11 +15,6 @@ void usage()
 
 int main(int argc, char * argv[])
 {
-
-        char * s = _compress("test.txt");
-        free(_decompress(s, 223));
-        free(s);
-        exit(0);
         if (argc < 3)
         {
                 usage();

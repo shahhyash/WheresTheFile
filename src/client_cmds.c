@@ -10,6 +10,9 @@
 #include <netdb.h>              // gethostbyname
 #include <openssl/sha.h>        // Hash function
 
+#include <sys/stat.h>
+#include <sys/types.h>
+
 /*
  *      Returns file descriptor to the socket as specified by the PORT and IP
  *      in .configure. Returns -1 on error.
@@ -149,6 +152,9 @@ int create_or_destroy(char * proj_name, int create)
                 char file[file_size+1];
                 bzero(file, file_size+1);
                 if (better_read(sock , file , file_size, __FILE__, __LINE__) <= 0)
+                        return 1;
+                /* Create local directory for project */
+                if (mkdir(proj_name, 0777))
                         return 1;
                 // Create .manifest
                 char manifest[strlen("/.manifest") + strlen(proj_name)];
