@@ -1,6 +1,7 @@
 #include "client_cmds.h"
 #include "flags.h"
 #include "fileIO.h"             // Socket + file IO
+#include "manifest_utils.h"     // Functions for .manifest analysis
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -324,5 +325,35 @@ int checkout(char * proj_name)
                 return 1;
         }
         
+        return 0;
+}
+
+/*
+ *
+ */
+int _update(char * proj_name)
+{
+        /* begin by initializing a connection to the server */
+        int sock = init_socket();
+
+        /* check if local version of project exists */
+        if (!dir_exists(proj_name))
+        {
+                fprintf(stderr, "[update] Project does not exist locally.\n");
+                return 1;
+        }
+
+        /* check if .Update exists from previous iteration - if it does, direct user to run upgrade first */
+        char dot_update_path[strlen(proj_name) + strlen("/.Update")];
+        sprintf(dot_update_path, "%s/.Update", proj_name);
+        if (file_exists(dot_update_path))
+        {
+                fprintf(stderr, "[update] An existing .Update file already exists. Please run upgrade before running update again.\n");
+                return 1;
+        }
+
+        /* fetch manifest files from server and build trees to store the data */
+        manifest_entry * server_manifest = read_manifest(fetch_server_manifest(proj_name));
+
         return 0;
 }

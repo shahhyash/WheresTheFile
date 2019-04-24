@@ -35,5 +35,9 @@ int _remove(char * proj_name, char * filename);
  *
  */
 int checkout(char * proj_name);
+/*
+ *      Creates .update file to track any server changes not present in local version
+ */ 
+int _update(char * proj_name);
 
 #endif
