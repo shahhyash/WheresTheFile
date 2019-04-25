@@ -12,7 +12,6 @@ manifest_entry * build_manifest_tree(char * file_contents, char * proj_name)
     root->version=atoi(file_contents);
     root->name=(char*)malloc(strlen(proj_name)+1);
     strcpy(root->name, proj_name);
-    root->file_path = root->name;
     root->num_children=0;
     root->child=NULL;
     root->sibling=NULL;
@@ -112,7 +111,8 @@ int add_manifest_entry(manifest_entry * root, manifest_entry * new_entry)
                 /* set values for new directory node */
                 manifest_entry * new_dir = (manifest_entry*) malloc(sizeof(manifest_entry));
                 new_dir->type=MF_DIR;
-                new_dir->name = dir_name;
+                new_dir->name = (char*)malloc(strlen(dir_name)+1);
+                strcpy(new_dir->name, dir_name);
                 new_dir->sibling=NULL;
                 new_dir->child=NULL;
                 new_dir->num_children=0;
@@ -201,12 +201,10 @@ void free_manifest_tree(manifest_entry * root)
         manifest_entry * child = root->child;
         while (child)
         {
-            free_manifest_tree(child);
             manifest_entry * sibling = child->sibling;
-            free(child);
+            free_manifest_tree(child);
             child = sibling;
         }
-        free(root);
     }
     else
     {
@@ -214,12 +212,13 @@ void free_manifest_tree(manifest_entry * root)
         free(root->file_path);
         free(root->hash_code);
     }
+    free(root);
 }
 
 
 char * fetch_server_manifest(char * proj_name)
 {
-    char * test_manifest = "1\n1 test/client_cmds.c fae61169ea07ee9866423547fb0933bbb5e993815b77238939fd03d3cfbf0a95\n1 test/client_cmds.h 749cd04330813fc83b382ed43b0e8b2b32e02b87c112ea419253aca1bd36aaec\n1 test/client_main.c 19f3b9cab2bf01ad1ca6f4fef69cd2cd40715561347bb1572b3b9790da775627\n1 test/client_main.h 19d98e0ba7356f5f41a007f72392d887fba9473813a95de4d87c86231df32efd\n1 test/fileIO.c dd0e78c28ada887212b9962029e948cf6c9c24cc8676d83ecccd5f76b263bc64\n1 test/fileIO.h c2e4d92b866763d78f3eb8aed5c38bf83685863177dfa45dab868fdfcbd23daf\n1 test/flags.h a20b6711c9fbb33f183625a4cc5e71aab2a5667daeddaa1d1e14752bed2c3381\n1 test/server_cmds.c 74a3652dd0d4de91d9fa10aef37944794ce356c54699abf8c1c5f12451bd843a\n1 test/server_cmds.h 9ca0c92b33797e54dfb4eda53744518dc0ea0be53603f27b8166774f9d23b7a0\n1 test/server_main.c 96b51064be18c658669a4f56d9b73e4d8410b15953debf30ed0891df62af417b\n1 test/server_main.h 97b39e84c4adb32736f562020d2f774723c9be3d0096468d4a666acae29b68ba\n";
+    char * test_manifest = "1\n1 test/client_cmds.c fae61169ea07ee9866423547fb0933bbb5e993815b77238939fd03d3cfbf0a95\n1 test/client_cmds.h 749cd04330813fc83b382ed43b0e8b2b32e02b87c112ea419253aca1bd36aaec\n1 test/client_main.c 19f3b9cab2bf01ad1ca6f4fef69cd2cd40715561347bb1572b3b9790da775627\n1 test/client_main.h 19d98e0ba7356f5f41a007f72392d887fba9473813a95de4d87c86231df32efd\n1 test/fileIO.c dd0e78c28ada887212b9962029e948cf6c9c24cc8676d83ecccd5f76b263bc64\n1 test/fileIO.h c2e4d92b866763d78f3eb8aed5c38bf83685863177dfa45dab868fdfcbd23daf\n1 test/flags.h a20b6711c9fbb33f183625a4cc5e71aab2a5667daeddaa1d1e14752bed2c33811\n1 test/test_dir/server_cmds.c 74a3652dd0d4de91d9fa10aef37944794ce356c54699abf8c1c5f12451bd843a\n1 test/test_dir/server_cmds.h 9ca0c92b33797e54dfb4eda53744518dc0ea0be53603f27b8166774f9d23b7a0\n1 test/test_dir/server_main.c 96b51064be18c658669a4f56d9b73e4d8410b15953debf30ed0891df62af417b\n1 test/test_dir/server_main.h 97b39e84c4adb32736f562020d2f774723c9be3d0096468d4a666acae29b68ba";
     char * server_manifest = (char*)malloc(strlen(test_manifest)+1);
     strcpy(server_manifest, test_manifest);
     return server_manifest;
