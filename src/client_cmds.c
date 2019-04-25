@@ -153,7 +153,7 @@ int create_or_destroy(char * proj_name, int create)
                 if (better_read(sock , file , file_size, __FILE__, __LINE__) <= 0)
                         return 1;
                 /* Create local directory for project */
-                if (make_dir(proj_name, 0777) != 0)
+                if (make_dir(proj_name, __FILE__, __LINE__) != 0)
                         return 1;
                 // Create .manifest
                 char manifest[strlen("/.manifest") + strlen(proj_name)];
@@ -332,7 +332,7 @@ int checkout(char * proj_name)
 int _update(char * proj_name)
 {
         /* begin by initializing a connection to the server */
-        int sock = init_socket();
+        // int sock = init_socket();
 
         /* check if local version of project exists */
         if (!dir_exists(proj_name))
@@ -351,7 +351,12 @@ int _update(char * proj_name)
         }
 
         /* fetch manifest files from server and build trees to store the data */
-        manifest_entry * server_manifest = read_manifest(fetch_server_manifest(proj_name));
+        char * manifest_contents = fetch_server_manifest(proj_name);
+        manifest_entry * server_manifest = build_manifest_tree(manifest_contents, proj_name);
+        free(manifest_contents);
+
+        print_manifest_tree(server_manifest, "");
+        free_manifest_tree(server_manifest);
 
         return 0;
 }

@@ -66,7 +66,7 @@ int main(int argc, char * argv[])
         }
         else if (strcmp(argv[1], "update") == 0)
         {
-                if (argc != 4)
+                if (argc != 3)
                 {
                         fprintf(stderr, "Usage: ./WTF update <project_name>\n");
                         exit(EXIT_FAILURE);
