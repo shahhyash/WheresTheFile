@@ -42,14 +42,11 @@ void remove_dir(char * dir);
  *                (ii) Send file size.
  *                (iii) Sends file bytes.
  */
-int send_file(int sd, char * filename);
+int send_file(int sd, char * buf, char * filesize);
 /*
- *
+ *      Using the socket descriptor sd, the function reads the decompressed
+ *      file received and returns a pointer to it as a string.
  */
-char * _compress(char * filename);
-/*
- *
- */
-char * _decompress(char * filename, int orig_size);
+char * receive_file(int sd);
 
 #endif

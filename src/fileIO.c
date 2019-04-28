@@ -8,7 +8,7 @@
 #include <sys/stat.h>           // check IS_DIR flags
 #include <dirent.h>             // Directory
 #include <fcntl.h>              // open flags
-#include <zlib.h>
+#include "compression.h"
 /*
  *    Sends nbyte bytes from the filedescriptor fd and stores them in buf.
  *    Returns 1 if successful. Otherwise returns a value according to the error.
@@ -185,21 +185,9 @@ void remove_dir(char * dir)
  *                (ii) Send file size.
  *                (iii) Sends file bytes.
  */
-int send_file(int sd, char * filename)
+int send_file(int sd, char * buf, char * filesize)
 {
-        int fd = open(filename, O_RDONLY, 00600);
-        int fd_size = lseek(fd, 0, SEEK_END);
-        char buf[fd_size+1];
-        bzero(buf, fd_size+1);
-        lseek(fd, 0, SEEK_SET);
-        if (better_read(fd, buf, fd_size, __FILE__, __LINE__) != 1)
-                return 1;
-        int num_digits = 0, digits = fd_size;
-        while (digits != 0)
-        {
-                num_digits++;
-                digits /= 10;
-        }
+        int num_digits = strlen(filesize);
         // Send three digit length of file size
         char file_size_str[4] = {'0','0','0',0};
         if (num_digits < 10)
@@ -212,95 +200,58 @@ int send_file(int sd, char * filename)
         if (better_send(sd, file_size_str, 3, 0, __FILE__, __LINE__) != 1)
                 return 1;
         // Send file size
-        char digits_str[num_digits+1];
-        bzero(digits_str, num_digits+1);
-        sprintf(digits_str, "%d", fd_size);
-        if (better_send(sd, digits_str, num_digits, 0, __FILE__, __LINE__) != 1)
+        printf("sending size %s\n", filesize);
+        fflush(stdout);
+        if (better_send(sd, filesize, strlen(filesize), 0, __FILE__, __LINE__) != 1)
                 return 1;
         // Send file bytes
-        if (better_send(sd, buf, fd_size, 0, __FILE__, __LINE__) != 1)
+        int f_size_num;
+        sscanf(filesize, "%d", &f_size_num);
+        // printf("sending file %s\n", buf);
+        if (better_send(sd, buf, f_size_num, 0, __FILE__, __LINE__) != 1)
                 return 1;
         return 0;
 
 }
 /*
- *
+ *      Using the socket descriptor sd, the function reads the decompressed
+ *      file received and returns a pointer to it as a string.
  */
-char * _compress(char * filename)
+char * receive_file(int sd)
 {
-        int fd = open(filename, O_RDONLY, 00600);
-        int size = lseek(fd, 0, SEEK_END);
-        lseek(fd, 0, SEEK_SET);
-        char buf[size+1];
-        bzero(buf, size+1);
-        if (better_read(fd, buf, size, __FILE__, __LINE__) != 1)
+        // Read decompressed file size length
+        char d_length_size[4] = {0,0,0,0};
+        if (better_read(sd , d_length_size , 3, __FILE__, __LINE__) <= 0)
                 return NULL;
-        close(fd);
-        char buf_compress[size+1];
-        bzero(buf_compress, size+1);
-        // zlib struct
-        z_stream defstream;
-        defstream.zalloc = Z_NULL;
-        defstream.zfree = Z_NULL;
-        defstream.opaque = Z_NULL;
-        // setup "a" as the input and "b" as the compressed output
-        defstream.avail_in = (uInt)size+1; // size of input, string + terminator
-        defstream.next_in = (Bytef *)buf; // input char array
-        defstream.avail_out = (uInt)size+1; // size of output
-        defstream.next_out = (Bytef *)buf_compress; // output char array
-        // the actual compression work.
-        deflateInit(&defstream, Z_BEST_COMPRESSION);
-        deflate(&defstream, Z_FINISH);
-        deflateEnd(&defstream);
-
-        // This is one way of getting the size of the output
-        printf("Compressed size is: %lu vs. original %d\n", defstream.total_out, size);
-        printf("Compressed string is: %s\n", buf_compress);
-        /*
-        char * compressed = (char *) malloc((strlen(filename)+1size+1)*sizeof(char));
-        bzero(compressed, strlen(compressed)+1);
-        sprintf(compressed, "")
-        return compressed;
-        */ return NULL;
-}
-char * recursive_compress(char * filename)
-{
-        if (dir_exists(filename))
-        //
-        {
-
-        }
-        else
-        {
-                return _compress(filename);
-        }
-        return NULL;
-}
-/*
- *
- */
-char * _decompress(char * buf, int orig_size)
-{
-        char * decompressed = (char *) malloc(sizeof(char) * orig_size+1);
-        bzero(decompressed, orig_size+1);
-        // zlib struct
-        z_stream infstream;
-        infstream.zalloc = Z_NULL;
-        infstream.zfree = Z_NULL;
-        infstream.opaque = Z_NULL;
-        // setup "b" as the input and "c" as the compressed output
-        infstream.avail_in = (uInt)strlen(buf); // size of input
-        infstream.next_in = (Bytef *)buf; // input char array
-        infstream.avail_out = (uInt)orig_size; // size of output
-        infstream.next_out = (Bytef *)decompressed; // output char array
-
-        // the actual DE-compression work.
-        inflateInit(&infstream);
-        inflate(&infstream, Z_NO_FLUSH);
-        inflateEnd(&infstream);
-
-        printf("Uncompressed size is: %lu\n", strlen(decompressed));
-        printf("Uncompressed string is: %s\n", decompressed);
+        int d_file_size_length;
+        sscanf(d_length_size, "%d", &d_file_size_length);
+        // Read decompressed file size
+        char d_file_size_str[1+d_file_size_length];
+        bzero(d_file_size_str, 1+d_file_size_length);
+        if (better_read(sd , d_file_size_str , d_file_size_length, __FILE__, __LINE__) <= 0)
+                return NULL;
+        int d_file_size;
+        sscanf(d_file_size_str, "%d", &d_file_size);
+        // Read size of file length
+        char length_size[4] = {0,0,0,0};
+        if (better_read(sd , length_size , 3, __FILE__, __LINE__) <= 0)
+                return NULL;
+        int file_size_length;
+        sscanf(length_size, "%d", &file_size_length);
+        // Read file size
+        char file_size_str[1+file_size_length];
+        bzero(file_size_str, 1+file_size_length);
+        if (better_read(sd , file_size_str , file_size_length, __FILE__, __LINE__) <= 0)
+                return NULL;
+        // Read file bytes
+        int file_size;
+        sscanf(file_size_str, "%d", &file_size);
+        char file[file_size+1];
+        bzero(file, file_size+1);
+        if (better_read(sd , file , file_size, __FILE__, __LINE__) <= 0)
+                return NULL;
+        // decompress file
+        printf("file: %s\n", file);
+        char * decompressed = _decompress(file, d_file_size, file_size);
         return decompressed;
-
 }

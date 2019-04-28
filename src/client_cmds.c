@@ -10,7 +10,7 @@
 #include <arpa/inet.h>          // socket
 #include <netdb.h>              // gethostbyname
 #include <openssl/sha.h>        // Hash function
-
+#include "compression.h"
 
 /*
  *      Returns file descriptor to the socket as specified by the PORT and IP
@@ -138,6 +138,7 @@ int create_or_destroy(char * proj_name, int create)
                 char file_size_length_str[4] = {0,0,0,0};
                 if (better_read(sock , file_size_length_str , 3, __FILE__, __LINE__) <= 0)
                         return 1;
+                printf("file size length %s\n", file_size_length_str);
                 int file_size_length = 1;
                 sscanf(file_size_length_str, "%d", &file_size_length);
                 // Read size of file
@@ -145,6 +146,7 @@ int create_or_destroy(char * proj_name, int create)
                 bzero(file_size_str, file_size_length+1);
                 if (better_read(sock , file_size_str , file_size_length, __FILE__, __LINE__) <= 0)
                         return 1;
+                printf("file size %s\n", file_size_str);
                 // Read file bytes
                 int file_size;
                 sscanf(file_size_str, "%d", &file_size);
@@ -152,6 +154,9 @@ int create_or_destroy(char * proj_name, int create)
                 bzero(file, file_size+1);
                 if (better_read(sock , file , file_size, __FILE__, __LINE__) <= 0)
                         return 1;
+                // decompress file
+                printf("file: %s\n", file);
+                // char * decompressed = _decompress(file, 3);
                 /* Create local directory for project */
                 if (make_dir(proj_name, __FILE__, __LINE__) != 0)
                         return 1;
@@ -159,13 +164,14 @@ int create_or_destroy(char * proj_name, int create)
                 char manifest[strlen("/.manifest") + strlen(proj_name)];
                 sprintf(manifest, "%s/.manifest", proj_name);
                 int fd_man = open(manifest, O_WRONLY | O_CREAT | O_TRUNC, 00600);
-                if (better_write(fd_man, file, file_size, __FILE__, __LINE__))
+                if (better_write(fd_man, file, strlen(file), __FILE__, __LINE__) != 1)
                         return 1;
                 close(fd_man);
+                // free(decompressed);
         }
         char buffer[30] = {0};
         printf("-->Sent message successfully.\n");
-        read( sock , buffer, 1024);
+        read( sock , buffer, 30);
         printf("Message from server:\t%s\n", buffer);
         return 0;
 }
@@ -313,7 +319,7 @@ int _remove(char * proj_name, char * filename)
 }
 
 /*
- *
+ *      Clones repository from server. Returns 1 on success; 0 otherwise.
  */
 int checkout(char * proj_name)
 {
@@ -322,7 +328,23 @@ int checkout(char * proj_name)
                 fprintf(stderr, "[checkout] Project already exists locally.\n");
                 return 1;
         }
-
+        int sock = init_socket();
+        int proj_name_length = strlen(proj_name);
+        char msg[6 + proj_name_length];
+        bzero(msg, 6 + proj_name_length);
+        char * leading_zeros = "";
+        if (proj_name_length < 10)
+                leading_zeros = "00";
+        else if (proj_name_length < 100)
+                leading_zeros = "0";
+        char * cmd = "che";
+        sprintf(msg, "%s%s%d%s", cmd, leading_zeros, proj_name_length, proj_name);
+        if (better_send(sock , msg , strlen(msg), 0, __FILE__, __LINE__) <= 0)
+                return 1;
+        char * decompressed = receive_file(sock);
+        printf("decompressed %s\n", decompressed);
+        recursive_unzip(decompressed);
+        free(decompressed);
         return 0;
 }
 

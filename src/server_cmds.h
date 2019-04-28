@@ -2,6 +2,10 @@
 #define SERVER_CMDS_H
 
 /*
+ *      Clones project and sends it to client. Returns 0 on success; 1 otherwise.
+ */
+int checkout(int sd, char * proj_name);
+/*
  *      Creates directory of name proj_name.
  *      Returns 1 on error; 0 otherwise.
  */

@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS=-Werror -Wall -g -fsanitize=address -std=gnu90
+CFLAGS=-Wall -g -fsanitize=address -std=gnu90
 OUTPUTS=build bin
 FOLDERS=bin build projects
 
@@ -16,11 +16,14 @@ build/client_cmds.o: src/client_cmds.c src/client_cmds.h build
 build/manifest_utils.o: src/manifest_utils.c src/manifest_utils.h build
 	$(CC) $(CFLAGS) -c src/manifest_utils.c -o build/manifest_utils.o
 
-build/lib.a: build/fileIO.o build
-	ar -rs build/lib.a build/fileIO.o
+build/lib.a: build/fileIO.o build/compression.o build
+	ar -rs build/lib.a build/fileIO.o build/compression.o
 
 build/fileIO.o: src/fileIO.c src/fileIO.h build
 	$(CC) $(CFLAGS) -c src/fileIO.c -o build/fileIO.o
+
+build/compression.o: src/compression.c src/compression.h
+	$(CC) $(CFLAGS) -c src/compression.c -o build/compression.o
 
 build:
 	mkdir build
