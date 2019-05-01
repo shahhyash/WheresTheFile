@@ -294,11 +294,11 @@ int _remove(char * proj_name, char * filename)
         lseek(fd, 0, SEEK_SET);
         char buf[size];
         better_read(fd, buf, size, __FILE__, __LINE__);
-        printf("pj: %s\nbuf: %s\n", name, buf);
+        // printf("pj: %s\nbuf: %s\n", name, buf);
         char * line = strstr(buf, name);
         if (line == NULL)
         {
-                fprintf(stderr, "[_remove] %s not in manifest. FILE: %s. LINE: %d.\n", filename, __FILE__, __LINE__);
+                fprintf(stderr, "[_remove] (Ignore if adding...) %s not in manifest. FILE: %s. LINE: %d.\n", filename, __FILE__, __LINE__);
                 return 1;
         }
         int num_bytes = line - &buf[0];
@@ -307,7 +307,7 @@ int _remove(char * proj_name, char * filename)
         while (buf[i] != '\n')
                 i++;
         end = i+1;
-        printf("%d\n", num_bytes);
+        // printf("%d\n", num_bytes);
         close(fd);
         int fd1 = open(pj, O_RDWR | O_TRUNC, 00600);
         better_write(fd1, buf, num_bytes-2, __FILE__, __LINE__);

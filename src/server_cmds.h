@@ -1,6 +1,5 @@
 #ifndef SERVER_CMDS_H
 #define SERVER_CMDS_H
-
 /*
  *      Clones project and sends it to client. Returns 0 on success; 1 otherwise.
  */

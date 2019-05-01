@@ -3,8 +3,8 @@ CFLAGS=-Wall -g -fsanitize=address -std=gnu90
 OUTPUTS=build bin
 FOLDERS=bin build projects
 
-all: build/server_cmds.o build/client_cmds.o build/manifest_utils.o build/lib.a $(FOLDERS)
-	$(CC) $(CFLAGS) -o bin/WTFserver src/server_main.c build/server_cmds.o build/lib.a -lpthread -lz
+all: build/server_cmds.o build/client_cmds.o build/manifest_utils.o build/lib.a  build/threads_and_locks.o $(FOLDERS)
+	$(CC) $(CFLAGS) -o bin/WTFserver src/server_main.c build/server_cmds.o build/threads_and_locks.o build/lib.a -lpthread -lz
 	$(CC) $(CFLAGS) -o bin/WTF src/client_main.c build/client_cmds.o build/manifest_utils.o build/lib.a -lssl -lcrypto -lz
 
 build/server_cmds.o: src/server_cmds.c src/server_cmds.h build
@@ -24,6 +24,9 @@ build/fileIO.o: src/fileIO.c src/fileIO.h build
 
 build/compression.o: src/compression.c src/compression.h
 	$(CC) $(CFLAGS) -c src/compression.c -o build/compression.o
+
+build/threads_and_locks.o: src/threads_and_locks.c src/threads_and_locks.h
+	$(CC) $(CFLAGS) -c src/threads_and_locks.c -o build/threads_and_locks.o
 
 build:
 	mkdir build

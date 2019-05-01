@@ -2,6 +2,7 @@
 #include "server_cmds.h"
 #include "fileIO.h"             // Socket + file IO
 #include "flags.h"
+#include "threads_and_locks.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -10,9 +11,13 @@
 #include <sys/socket.h>         // ?
 #include <netinet/in.h>         // Socket
 #include <unistd.h>             // FILE IO
+#include <signal.h>             // signals
 //#include <errno.h>              // Read Errors set
 
 #define QUEUE_SIZE 20
+extern pthread_mutex_t table_lck;
+extern pthread_mutex_t access_lock;
+pthread_t thread_id[QUEUE_SIZE+10];
 
 /*
  *      Prints usage to stdout
@@ -21,7 +26,6 @@ void usage()
 {
         fprintf(stderr, "Usage: ./WTFserver <PORT NUMBER>\n");
 }
-
 /*
  *      Reads length of project name. Then reads project name from client.
  *      Input sd, a socket file descriptor, and an
@@ -48,7 +52,6 @@ char * read_project_name(int sd)
         }
         return project_name;
 }
-
 /*
  *      Handles client communication through the inputted socket descriptor.
  */
@@ -162,6 +165,13 @@ void * client_comm(void * args)
         pthread_exit(NULL);
 }
 
+void termination_handler (int signum)
+{
+        int j = 0;
+        while(j < QUEUE_SIZE)
+                pthread_join(thread_id[j++], NULL);
+}
+
 int main(int argc, char * argv[])
 {
         if (argc != 2)
@@ -170,6 +180,24 @@ int main(int argc, char * argv[])
                 exit(EXIT_FAILURE);
         }
 
+        // Setup signals
+        struct sigaction new_action, old_action;
+        /* Set up the structure to specify the new action. */
+        new_action.sa_handler = termination_handler;
+        sigemptyset (&new_action.sa_mask);
+        new_action.sa_flags = 0;
+
+        sigaction (SIGINT, NULL, &old_action);
+        if (old_action.sa_handler != SIG_IGN)
+                sigaction (SIGINT, &new_action, NULL);
+        sigaction (SIGHUP, NULL, &old_action);
+        if (old_action.sa_handler != SIG_IGN)
+                sigaction (SIGHUP, &new_action, NULL);
+        sigaction (SIGTERM, NULL, &old_action);
+        if (old_action.sa_handler != SIG_IGN)
+                sigaction (SIGTERM, &new_action, NULL);
+
+        // setup server
         int server_fd, new_socket;
         struct sockaddr_in address;
         int opt = 1;
@@ -210,9 +238,18 @@ int main(int argc, char * argv[])
                 perror("listen");
                 exit(EXIT_FAILURE);
         }
+        if (pthread_mutex_init(&table_lck, NULL) != 0)
+        {
+                fprintf(stderr, "[main] Mutex init failed. FILE: %s. LINE: %d.\n", __FILE__, __LINE__);
+                return 1;
+        }
+        if (pthread_mutex_init(&access_lock, NULL) != 0)
+        {
+                fprintf(stderr, "[main] Mutex init failed. FILE: %s. LINE: %d.\n", __FILE__, __LINE__);
+                return 1;
+        }
 
         int i = 0;
-        pthread_t thread_id[QUEUE_SIZE+10];
         while (TRUE)
         {
                 if ((new_socket = accept(server_fd, (struct sockaddr *)&address,
@@ -221,20 +258,23 @@ int main(int argc, char * argv[])
                     perror("accept");
                     exit(EXIT_FAILURE);
                 }
+
+
                 //for each client request creates a thread and assign the client request to it to process
                 //so the main thread can entertain next request
                 if( pthread_create(&thread_id[i], NULL, client_comm, &new_socket) != 0 )
                         printf("Failed to create thread\n");
-                else
-                        i++;
-                printf("%d\n", i);
+                i++;
                 if( i >= QUEUE_SIZE)
                 {
-                        i = 0;
-                        while(i < QUEUE_SIZE)
-                                pthread_join(thread_id[i++], NULL);
-                        i = 0;
+                        int j = 0;
+                        while(j >= QUEUE_SIZE)
+                        {
+                                pthread_join(thread_id[j++], NULL);
+                                i--;
+                        }
                 }
+                printf("%d\n", i);
         }
         pthread_exit(NULL);
 
