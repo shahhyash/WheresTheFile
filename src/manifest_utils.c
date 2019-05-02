@@ -4,19 +4,16 @@
 #include <string.h>
 #include <ctype.h>
 
-manifest_entry * build_manifest_tree(char * file_contents, char * proj_name)
+manifest_entry * read_manifest_file(char * file_contents)
 {        
-    /* create root node for tree */
+    /* create node for head of list */
     manifest_entry * root = (manifest_entry*)malloc(sizeof(manifest_entry));
-    root->type=MF_ROOT;
     root->version=atoi(file_contents);
-    root->name=(char*)malloc(strlen(proj_name)+1);
-    strcpy(root->name, proj_name);
-    root->num_children=0;
-    root->child=NULL;
-    root->sibling=NULL;
+    root->file_path=NULL;
+    root->hash_code=NULL;
+    root->next=NULL;
 
-    manifest_entry * current_node = NULL;
+    manifest_entry * ptr = root;
 
     char * line_saveptr;
 
@@ -50,17 +47,12 @@ manifest_entry * build_manifest_tree(char * file_contents, char * proj_name)
         if (mode == 4)
         {
             /* create new node for current manifest entry */
-            current_node = (manifest_entry*)malloc(sizeof(manifest_entry));
-            current_node->type = MF_FILE;
-            current_node->version = version;
-            current_node->file_path = file_path;
-            current_node->hash_code = hash_code;
-            current_node->num_children = 0;
-            current_node->sibling = NULL;
-            current_node->child = NULL;
-
-            /* add entry to appropriate location in tree */
-            add_manifest_entry(root, current_node);
+            ptr->next = (manifest_entry*)malloc(sizeof(manifest_entry));
+            ptr = ptr->next;
+            ptr->version = version;
+            ptr->file_path = file_path;
+            ptr->hash_code = hash_code;
+            ptr->next = NULL;
         }
 
         manifest_line = strtok_r(NULL, "\n", &line_saveptr);
@@ -69,152 +61,26 @@ manifest_entry * build_manifest_tree(char * file_contents, char * proj_name)
     return root;
 }
 
-int add_manifest_entry(manifest_entry * root, manifest_entry * new_entry)
+void print_manifest(manifest_entry * root)
 {
-    manifest_entry * ptr = root;
-
-    char file_path[strlen(new_entry->file_path) + 1];
-    strcpy(file_path, new_entry->file_path);
-
-    strtok(file_path, "/");                     /* skip project name part of path */
-    char * dir_name = strtok(NULL, "/");
-
-    while (dir_name)
+    while (root)
     {
-        char * next = strtok(NULL, "/");
-        if (next)
-        {
-            /* dir_name is a directory - search ptr's children and if you reach the end w/out finding it, make a directory node */
-            manifest_entry * prev_child = NULL;
-            manifest_entry * child = ptr->child;
-            while (child)
-            {
-                if (child->type == MF_DIR)
-                {
-                    if (strcmp(child->name, dir_name) == 0)
-                    {
-                        ptr = child;
-                        break;
-                    }
-                }
-
-                prev_child = child;
-                child = child->sibling;
-            }
-
-            /* if child is NULL, then search failed. Add new sibling directory */
-            if (child == NULL)
-            {
-                /* increment children count for parent directory */
-                ++ptr->num_children;
-
-                /* set values for new directory node */
-                manifest_entry * new_dir = (manifest_entry*) malloc(sizeof(manifest_entry));
-                new_dir->type=MF_DIR;
-                new_dir->name = (char*)malloc(strlen(dir_name)+1);
-                strcpy(new_dir->name, dir_name);
-                new_dir->sibling=NULL;
-                new_dir->child=NULL;
-                new_dir->num_children=0;
-
-                /* if prev_child is null, then parent had no children to begin with */
-                if (prev_child)
-                {
-                    prev_child->sibling = new_dir;
-                    ptr = prev_child->sibling;
-                }
-                else
-                {
-                    ptr->child = new_dir;
-                    ptr = ptr->child;
-                }
-            }
-        }
-        else
-        {
-            /* dir_name is the file -> append new_entry to child nodes */
-            
-            new_entry->name = (char*)malloc(strlen(dir_name)+1);
-            strcpy(new_entry->name, dir_name);
-
-            ++ptr->num_children;
-
-            manifest_entry * prev_child = NULL;
-            manifest_entry * child = ptr->child;
-            while(child)
-            {
-                prev_child = child;
-                child = child->sibling;
-            }
-
-            if (prev_child)
-            {
-                prev_child->sibling = new_entry;
-            }
-            else
-            {
-                ptr->child = new_entry;
-            }
-        }
-        
-        dir_name = next;
-    }
-
-    return 0;
-}
-
-void print_manifest_tree(manifest_entry * root, char * path)
-{
-    if(root->type == MF_ROOT)
-    {
-        printf("Found root directory %s. Current Path: %s/\n", root->name, root->name);
-        manifest_entry * child = root->child;
-        while (child)
-        {
-            print_manifest_tree(child, root->name);
-            child = child->sibling;
-        }
-    }
-    else if (root->type == MF_DIR)
-    {
-        printf("Found sub directory %s. Current Path: %s/%s/\n", root->name, path, root->name);
-        char new_path[strlen(path) + strlen(root->name) + 1];
-        sprintf(new_path, "%s/%s", path, root->name);
-        manifest_entry * child = root->child;
-        while (child)
-        {
-            print_manifest_tree(child, new_path);
-            child = child->sibling;
-        }
-    }
-    else
-    {
-        printf("Found manifest item %s. File Path: %s\n", root->name, root->file_path);
+        printf("version=%d, filepath=%s, hashcode=%s\n", root->version, root->file_path, root->hash_code);
+        root = root->next;
     }
 }
 
-void free_manifest_tree(manifest_entry * root)
+void free_manifest(manifest_entry * root)
 {
-    if (root->type == MF_ROOT || root->type == MF_DIR)
+    while (root)
     {
-        free(root->name);
-        manifest_entry * child = root->child;
-        while (child)
-        {
-            manifest_entry * sibling = child->sibling;
-            free_manifest_tree(child);
-            child = sibling;
-        }
-    }
-    else
-    {
-        free(root->name);
+        manifest_entry * next = root->next;
         free(root->file_path);
         free(root->hash_code);
+        free(root);
+        root = next;
     }
-    free(root);
 }
-
 
 char * fetch_server_manifest(char * proj_name)
 {

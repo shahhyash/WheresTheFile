@@ -372,13 +372,14 @@ int _update(char * proj_name)
                 return 1;
         }
 
-        /* fetch manifest files from server and build trees to store the data */
+        /* fetch manifest file from server and build trees to store the data */
         char * manifest_contents = fetch_server_manifest(proj_name);
-        manifest_entry * server_manifest = build_manifest_tree(manifest_contents, proj_name);
-        free(manifest_contents);
+        manifest_entry * server_manifest = read_manifest_file(manifest_contents);
+        free(manifest_contents); /* free buffer of manifest file bc we don't need it anymore */
 
-        print_manifest_tree(server_manifest, "");
-        free_manifest_tree(server_manifest);
+
+        print_manifest(server_manifest);
+        free_manifest(server_manifest);
 
         return 0;
 }
