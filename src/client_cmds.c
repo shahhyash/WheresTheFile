@@ -382,13 +382,17 @@ int _update(char * proj_name)
         manifest_entry * client_manifest = read_manifest_file(manifest_contents);
         free(manifest_contents);
 
+        /* count number of updates */
+        int num_updates = 0;
+
         /* iterate through all items in server manifest and compare against client copy */
         manifest_entry * server_copy = server_manifest;
+        manifest_entry * client_copy = NULL;
         while (server_copy)
         {
                 if (server_copy->file_path && server_copy->hash_code) /* check if manifest item is not the root item */
                 {
-                        manifest_entry * client_copy = client_manifest;
+                        client_copy = client_manifest;
                         while (client_copy)
                         {
                                 if (client_copy->file_path)
@@ -408,21 +412,24 @@ int _update(char * proj_name)
 
                                 if (version_cmp == 0 && hash_cmp == 0)
                                 {
-                                        printf("File at %s does not need to be updated.\n", server_copy->file_path);
+                                        
                                 }
                                 else if (version_cmp == 0 && hash_cmp != 0)
                                 {
-                                        printf("File at %s needs to be uploaded.\n", server_copy->file_path);
+                                        printf("U\t%s\n", server_copy->file_path);
+                                        ++num_updates;
                                 }
                                 else if (version_cmp != 0 && hash_cmp == 0)
                                 {
                                         if (server_manifest->version != client_manifest->version)
                                         {
-                                                printf("File at %s needss to be modified.\n", server_copy->file_path);
+                                                printf("M\t%s\n", server_copy->file_path);
+                                                ++num_updates;
                                         }
                                         else
                                         {
-                                                printf("error: this should never happen. File=%s\n", server_copy->file_path);
+                                                fprintf(stderr, "ERROR: Local manifest file may be corrupted. %s has different version numbers despite manifest versions being the same. This should not ever occur.", client_copy->file_path);
+                                                return 1;
                                         }
                                         
                                 }
@@ -430,19 +437,63 @@ int _update(char * proj_name)
                                 {
                                         if (server_manifest->version != client_manifest->version)
                                         {
-                                                printf("File at %s is a conflict.\n", server_copy->file_path);
+                                                fprintf(stderr, "CONFLICT at %s. Please fix it then run update again.\n", server_copy->file_path);
                                         }
                                         else
                                         {
-                                                printf("error: this should never happen. File=%s\n", server_copy->file_path);
+                                                fprintf(stderr, "ERROR: Local manifest file may be corrupted. %s has different version numbers despite manifest versions being the same. This should not ever occur.", client_copy->file_path);
+                                                return 1;
                                         }
                                         
                                 }
                         }
+                        else    /* file exists on server copy, but not in clients, should probably be added */
+                        {
+                                printf("A\t%s\n", server_copy->file_path);
+                                ++num_updates;
+                        }
+                        
                 }
 
                 /* go to next item in manifest */
                 server_copy = server_copy->next;
+        }
+
+        /* iterate through client to see if there's any files that need to be deleted */
+        client_copy = client_manifest->next;
+        while (client_copy)
+        {
+                int found = 0;
+                server_copy = server_manifest->next;
+                while (server_copy)
+                {
+                        int file_path_cmp = strcmp(client_copy->file_path, server_copy->file_path);
+                        if (file_path_cmp == 0)
+                        {
+                                found = 1;
+                                break;
+                        }
+
+                        server_copy = server_copy->next;
+                }
+
+                if (!found)
+                {
+                        /* client copy probably doesn't exist on server anymore, mark for deletion */
+                        printf("D\t%s\n", client_copy->file_path);
+                        ++num_updates;
+                }
+
+                client_copy = client_copy->next;
+        }
+
+        if (num_updates == 0)
+        {
+           printf("Client copy is up to date.\n");     
+        }
+        else
+        {
+                /* write to update file? */
         }
 
 
