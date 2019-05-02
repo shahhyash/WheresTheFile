@@ -372,13 +372,81 @@ int _update(char * proj_name)
                 return 1;
         }
 
-        /* fetch manifest file from server and build trees to store the data */
+        /* fetch manifest file from server and store in a linked list */
         char * manifest_contents = fetch_server_manifest(proj_name);
         manifest_entry * server_manifest = read_manifest_file(manifest_contents);
         free(manifest_contents); /* free buffer of manifest file bc we don't need it anymore */
 
+        /* fetch manifest file from client and store in a linked list */
+        manifest_contents = fetch_server_manifest(proj_name);
+        manifest_entry * client_manifest = read_manifest_file(manifest_contents);
+        free(manifest_contents);
 
-        print_manifest(server_manifest);
+        /* iterate through all items in server manifest and compare against client copy */
+        manifest_entry * server_copy = server_manifest;
+        while (server_copy)
+        {
+                if (server_copy->file_path && server_copy->hash_code) /* check if manifest item is not the root item */
+                {
+                        manifest_entry * client_copy = client_manifest;
+                        while (client_copy)
+                        {
+                                if (client_copy->file_path)
+                                {
+                                        int cmp = strcmp(server_copy->file_path, client_copy->file_path);
+                                        if (cmp == 0)
+                                                break;
+                                }
+                                client_copy = client_copy->next;
+                        }
+
+                        /* successfully found manifest entry for same file path */
+                        if (client_copy->file_path)
+                        {       
+                                int version_cmp = server_copy->version - client_copy->version;
+                                int hash_cmp = strcmp(server_copy->hash_code, client_copy->hash_code);
+
+                                if (version_cmp == 0 && hash_cmp == 0)
+                                {
+                                        printf("File at %s does not need to be updated.\n", server_copy->file_path);
+                                }
+                                else if (version_cmp == 0 && hash_cmp != 0)
+                                {
+                                        printf("File at %s needs to be uploaded.\n", server_copy->file_path);
+                                }
+                                else if (version_cmp != 0 && hash_cmp == 0)
+                                {
+                                        if (server_manifest->version != client_manifest->version)
+                                        {
+                                                printf("File at %s needss to be modified.\n", server_copy->file_path);
+                                        }
+                                        else
+                                        {
+                                                printf("error: this should never happen. File=%s\n", server_copy->file_path);
+                                        }
+                                        
+                                }
+                                else
+                                {
+                                        if (server_manifest->version != client_manifest->version)
+                                        {
+                                                printf("File at %s is a conflict.\n", server_copy->file_path);
+                                        }
+                                        else
+                                        {
+                                                printf("error: this should never happen. File=%s\n", server_copy->file_path);
+                                        }
+                                        
+                                }
+                        }
+                }
+
+                /* go to next item in manifest */
+                server_copy = server_copy->next;
+        }
+
+
+        free_manifest(client_manifest);
         free_manifest(server_manifest);
 
         return 0;
