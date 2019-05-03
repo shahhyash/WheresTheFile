@@ -378,7 +378,7 @@ int _update(char * proj_name)
         free(manifest_contents); /* free buffer of manifest file bc we don't need it anymore */
 
         /* fetch manifest file from client and store in a linked list */
-        manifest_contents = fetch_server_manifest(proj_name);
+        manifest_contents = fetch_client_manifest(proj_name);
         manifest_entry * client_manifest = read_manifest_file(manifest_contents);
         free(manifest_contents);
 
@@ -405,7 +405,7 @@ int _update(char * proj_name)
                         }
 
                         /* successfully found manifest entry for same file path */
-                        if (client_copy->file_path)
+                        if (client_copy)
                         {       
                                 int version_cmp = server_copy->version - client_copy->version;
                                 int hash_cmp = strcmp(server_copy->hash_code, client_copy->hash_code);
@@ -416,19 +416,21 @@ int _update(char * proj_name)
                                 }
                                 else if (version_cmp == 0 && hash_cmp != 0)
                                 {
-                                        printf("U\t%s\n", server_copy->file_path);
+                                        printf("U  %s\n", server_copy->file_path);
                                         ++num_updates;
                                 }
                                 else if (version_cmp != 0 && hash_cmp == 0)
                                 {
                                         if (server_manifest->version != client_manifest->version)
                                         {
-                                                printf("M\t%s\n", server_copy->file_path);
+                                                printf("M  %s\n", server_copy->file_path);
                                                 ++num_updates;
                                         }
                                         else
                                         {
-                                                fprintf(stderr, "ERROR: Local manifest file may be corrupted. %s has different version numbers despite manifest versions being the same. This should not ever occur.", client_copy->file_path);
+                                                fprintf(stderr, "ERROR: Local manifest file may be corrupted. %s has different version numbers despite manifest versions being the same. This should not ever occur.\n", client_copy->file_path);
+                                                free_manifest(client_manifest);
+                                                free_manifest(server_manifest);
                                                 return 1;
                                         }
                                         
@@ -441,7 +443,9 @@ int _update(char * proj_name)
                                         }
                                         else
                                         {
-                                                fprintf(stderr, "ERROR: Local manifest file may be corrupted. %s has different version numbers despite manifest versions being the same. This should not ever occur.", client_copy->file_path);
+                                                fprintf(stderr, "ERROR: Local manifest file may be corrupted. %s has different version numbers despite manifest versions being the same. This should not ever occur.\n", client_copy->file_path);
+                                                free_manifest(client_manifest);
+                                                free_manifest(server_manifest);
                                                 return 1;
                                         }
                                         
@@ -449,7 +453,7 @@ int _update(char * proj_name)
                         }
                         else    /* file exists on server copy, but not in clients, should probably be added */
                         {
-                                printf("A\t%s\n", server_copy->file_path);
+                                printf("A  %s\n", server_copy->file_path);
                                 ++num_updates;
                         }
                         
@@ -480,7 +484,7 @@ int _update(char * proj_name)
                 if (!found)
                 {
                         /* client copy probably doesn't exist on server anymore, mark for deletion */
-                        printf("D\t%s\n", client_copy->file_path);
+                        printf("D  %s\n", client_copy->file_path);
                         ++num_updates;
                 }
 

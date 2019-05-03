@@ -1,8 +1,13 @@
 #include "manifest_utils.h"
+#include "fileIO.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <sys/types.h>
+#include <unistd.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 
 manifest_entry * read_manifest_file(char * file_contents)
 {        
@@ -92,6 +97,18 @@ char * fetch_server_manifest(char * proj_name)
 
 char * fetch_client_manifest(char * proj_name)
 {
-    /* TODO: Implement this */
+    char manifest_path[strlen("/.manifest") + strlen(proj_name)];
+    sprintf(manifest_path, "%s/.manifest", proj_name);
+    int fd_man = open(manifest_path, O_RDONLY);
+
+    int file_length = lseek(fd_man, 0, SEEK_END);
+    lseek(fd_man, 0, SEEK_SET);
+
+    char * manifest_buffer = (char*)malloc(sizeof(char) * file_length);
+    if (better_read(fd_man, manifest_buffer, file_length, __FILE__, __LINE__))
+        return manifest_buffer;
+
+    close(fd_man);
+
     return NULL;
 }
