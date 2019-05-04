@@ -45,12 +45,15 @@ int init_socket()
             fprintf(stderr, "\nInvalid address/ Address not supported \n");
             return -1;
         }
-
-        if (connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0)
-        {
-            fprintf(stderr, "\nConnection Failed \n");
-            return -1;
-        }
+        int ret;
+        do {
+                ret = connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0;
+                if (ret)
+                {
+                    fprintf(stderr, "\nConnection Failed. Trying again in 3 seconds \n");
+                    sleep(3);
+                }
+        } while(ret);
         printf("Client has successfully connected to server.\n");
 
 

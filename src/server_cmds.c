@@ -103,7 +103,11 @@ int create(int sd, char * proj_name)
         is_table_lcked = TRUE;
         pthread_mutex_t * lock = add_project(proj_name, __FILE__, __LINE__);
         if (lock == NULL)
+        {
+                pthread_mutex_unlock(&table_lck);
+                is_table_lcked = FALSE;
                 return 1;
+        }
         while (!is_table_lcked)
         {
                 printf("Table locked\n");
