@@ -93,7 +93,7 @@ char * recursive_zip(char * _filename, int is_server)
         char filename[strlen(_filename)];
         bzero(filename, strlen(_filename));
         if (is_server)
-                strcpy(filename, &_filename[strlen("projects/")]);
+                strcpy(filename, &_filename[strlen(".server_repo/")]);
         else
                 strcpy(filename, &_filename[0]);
         printf("%s %s\n", filename, _filename);

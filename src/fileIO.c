@@ -177,6 +177,7 @@ void remove_dir(char * dir)
                 item = readdir(dirdes);
         }
         remove(dir);
+        closedir(dirdes);
 }
 /*
  *      Sends data stored in file filename through socket descriptor sd.

@@ -20,28 +20,32 @@ extern proj_t * proj_list;
  */
 int checkout(int sd, char * proj_name)
 {
-        // Return if projects folder does not already exist
-        if (dir_exists("projects") == 0)
+        // Return if .server_repo folder does not already exist
+        if (dir_exists(".server_repo") == 0)
                 return 1;
         pthread_mutex_t * lock = get_project_lock(proj_name);
         if (lock == NULL)
                 return 1;
-        while (is_table_lcked);
+        else
+        {
+                if (better_send(sd, "Found repository. Sending now.", 30, 0, __FILE__, __LINE__) != 1)
+                        return 1;
+        }
+        while (is_table_lcked)
+                printf("table locked.\n");
         pthread_mutex_lock(lock);
         pthread_mutex_lock(&access_lock);
         num_access++;
         pthread_mutex_unlock(&access_lock);
         char new_proj_name[strlen(proj_name)+9];
-        sprintf(new_proj_name, "projects/%s", proj_name);
+        sprintf(new_proj_name, ".server_repo/%s", proj_name);
         char * zipped = recursive_zip(new_proj_name, TRUE);
-
         pthread_mutex_lock(&access_lock);
         num_access--;
         pthread_mutex_unlock(&access_lock);
         pthread_mutex_unlock(lock);
         printf("zipped: %s\n", zipped);
         int zipped_size = strlen(zipped);
-
         int num_digits = 0;
         int i = zipped_size;
         while (i != 0)
@@ -61,6 +65,7 @@ int checkout(int sd, char * proj_name)
         printf("sending %s\n", file_size_str);
         if (better_send(sd, file_size_str, 3, 0, __FILE__, __LINE__) != 1)
         {
+                free(zipped);
                 return 1;
         }
         char zip_size_str[10] = {0,0,0,0,0,0,0,0,0,0};
@@ -70,14 +75,17 @@ int checkout(int sd, char * proj_name)
         fflush(stdout);
         if (better_send(sd, zip_size_str, strlen(zip_size_str), 0, __FILE__, __LINE__) != 1)
         {
+                free(zipped);
                 return 1;
         }
         int c_s;
         char * compressed = _compress(zipped, &c_s);
+        free(zipped);
         char c_s_str[10] = {0,0,0,0,0,0,0,0,0,0};
         sprintf(c_s_str, "%d", c_s);
         // Send compressed file
         send_file(sd, compressed, c_s_str);
+        free(compressed);
         return 0;
 }
 
@@ -87,26 +95,28 @@ int checkout(int sd, char * proj_name)
  */
 int create(int sd, char * proj_name)
 {
-        // Create projects folder if one does not already exist
-        if(!dir_exists("projects"))
-        {
-                if (make_dir("projects", __FILE__, __LINE__) < 0)
-                        return 1;
-        }
+        if (dir_exists(".server_repo") == 0)
+                return 1;
+        printf("Seeing is table is locked...\n");
         pthread_mutex_lock(&table_lck);
+        printf("Table is unlocked.");
         is_table_lcked = TRUE;
         pthread_mutex_t * lock = add_project(proj_name, __FILE__, __LINE__);
         if (lock == NULL)
                 return 1;
-        while (!is_table_lcked);
+        while (!is_table_lcked)
+        {
+                printf("Table locked\n");
+        }
         pthread_mutex_lock(lock);
         pthread_mutex_lock(&access_lock);
         num_access++;
         pthread_mutex_unlock(&access_lock);
-        char new_proj_name[strlen(proj_name)+9];
-        sprintf(new_proj_name, "projects/%s", proj_name);
+        char new_proj_name[strlen(proj_name)+1+strlen(".server_repo/")];
+        bzero(new_proj_name, strlen(proj_name)+1+strlen(".server_repo/"));
+        sprintf(new_proj_name, ".server_repo/%s", proj_name);
 
-        // create new project in projects folder
+        // create new project in .server_repo folder
         if (make_dir(new_proj_name, __FILE__, __LINE__) != 0)
         {
                 pthread_mutex_lock(&access_lock);
@@ -169,7 +179,11 @@ int create(int sd, char * proj_name)
  */
 int destroy(char * proj_name)
 {
+        if (dir_exists(".server_repo") == 0)
+                return 1;
+        printf("Seeing is table is locked...\n");
         pthread_mutex_lock(&table_lck);
+        printf("Table is unlocked.");
         is_table_lcked = TRUE;
         proj_t * to_be_deleted = delete_project(proj_name);
         if (to_be_deleted == NULL)
@@ -179,16 +193,18 @@ int destroy(char * proj_name)
                 fprintf(stderr, "[create] Error deleting project from repository.\n");
                 return 1;
         }
-        if (!dir_exists("projects"))
+        if (!dir_exists(".server_repo"))
         {
                 fprintf(stderr, "[create] Project does not exist.\n");
+                pthread_mutex_unlock(&table_lck);
                 return 1;
         }
         char new_proj_name[strlen(proj_name)+9];
-        sprintf(new_proj_name, "projects/%s", proj_name);
+        sprintf(new_proj_name, ".server_repo/%s", proj_name);
         if (!dir_exists(new_proj_name))
         {
                 fprintf(stderr, "[create] Project does not exist.\n");
+                pthread_mutex_unlock(&table_lck);
                 return 1;
         }
         printf("removing directory: %s\n", new_proj_name);

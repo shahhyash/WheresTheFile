@@ -15,6 +15,7 @@
 //#include <errno.h>              // Read Errors set
 
 #define QUEUE_SIZE 20
+int queued = 0;
 extern pthread_mutex_t table_lck;
 extern pthread_mutex_t access_lock;
 pthread_t thread_id[QUEUE_SIZE+10];
@@ -64,6 +65,7 @@ void * client_comm(void * args)
         {
                 fprintf(stderr, "[client_comm] Error returned by better_read. FILE: %s. LINE: %d\n", __FILE__, __LINE__);
                 close(sd);
+                printf("Disconnected client.\n");
                 pthread_exit(NULL);
         }
         printf("[client_comm] Command received: %s\n", command);
@@ -72,6 +74,7 @@ void * client_comm(void * args)
         {
                 fprintf(stderr, "Error\n");
                 close(sd);
+                printf("Disconnected client.\n");
                 pthread_exit(NULL);
         }
         printf("Project name: %s\n", proj_name);
@@ -83,15 +86,17 @@ void * client_comm(void * args)
                         {
                                 fprintf(stderr, "[client_comm] Error returned by better_send. FILE: %s. LINE: %d\n", __FILE__, __LINE__);
                                 close(sd);
+                                printf("Disconnected client.\n");
                                 pthread_exit(NULL);
                         }
                 }
                 else
                 {
-                        if (better_send(sd, "Project successfully created!", 29, 0, __FILE__, __LINE__) <= 0)
+                        if (better_send(sd, "Project successfully created! ", 30, 0, __FILE__, __LINE__) <= 0)
                         {
                                 fprintf(stderr, "[client_comm] Error returned by better_send. FILE: %s. LINE: %d\n", __FILE__, __LINE__);
                                 close(sd);
+                                printf("Disconnected client.\n");
                                 pthread_exit(NULL);
                         }
                 }
@@ -105,15 +110,17 @@ void * client_comm(void * args)
                         {
                                 fprintf(stderr, "[client_comm] Error returned by better_send. FILE: %s. LINE: %d\n", __FILE__, __LINE__);
                                 close(sd);
+                                printf("Disconnected client.\n");
                                 pthread_exit(NULL);
                         }
                 }
                 else
                 {
-                        if (better_send(sd, "Project successfully deleted!", 29, 0, __FILE__, __LINE__) <= 0)
+                        if (better_send(sd, "Project successfully deleted! ", 30, 0, __FILE__, __LINE__) <= 0)
                         {
                                 fprintf(stderr, "[client_comm] Error returned by better_send. FILE: %s. LINE: %d\n", __FILE__, __LINE__);
                                 close(sd);
+                                printf("Disconnected client.\n");
                                 pthread_exit(NULL);
                         }
                 }
@@ -126,15 +133,17 @@ void * client_comm(void * args)
                         {
                                 fprintf(stderr, "[client_comm] Error returned by better_send. FILE: %s. LINE: %d\n", __FILE__, __LINE__);
                                 close(sd);
+                                printf("Disconnected client.\n");
                                 pthread_exit(NULL);
                         }
                 }
                 else
                 {
-                        if (better_send(sd, "Project successfully checkedout!", 29, 0, __FILE__, __LINE__) <= 0)
+                        if (better_send(sd, "Project checkout successful!  ", 30, 0, __FILE__, __LINE__) <= 0)
                         {
                                 fprintf(stderr, "[client_comm] Error returned by better_send. FILE: %s. LINE: %d\n", __FILE__, __LINE__);
                                 close(sd);
+                                printf("Disconnected client.\n");
                                 pthread_exit(NULL);
                         }
                 }
@@ -142,13 +151,15 @@ void * client_comm(void * args)
         else
         {
                 fprintf(stderr, "[client_comm] Invalid command received.\n");
-                if (better_send(sd, "Error: Invalid command received", 31, 0, __FILE__, __LINE__) <= 0)
+                if (better_send(sd, "Error:Invalid command received", 30, 0, __FILE__, __LINE__) <= 0)
                 {
                         fprintf(stderr, "[client_comm] Error returned by better_read. FILE: %s. LINE: %d\n", __FILE__, __LINE__);
                         close(sd);
+                        printf("Disconnected client.\n");
                         pthread_exit(NULL);
                 }
                 close(sd);
+                printf("Disconnected client.\n");
                 pthread_exit(NULL);
         }
         /*
@@ -162,14 +173,20 @@ void * client_comm(void * args)
         free(proj_name);
         printf("-->Sent message successfully.\n");
         close(sd);
+        printf("Disconnected client.\n");
         pthread_exit(NULL);
 }
 
 void termination_handler (int signum)
 {
         int j = 0;
-        while(j < QUEUE_SIZE)
+        while(j < queued)
+        {
                 pthread_join(thread_id[j++], NULL);
+                printf("Removed thread %d.\n", j);
+        }
+        printf("Server closed.\n");
+        remove_dir(".server_repo");
 }
 
 int main(int argc, char * argv[])
@@ -180,6 +197,11 @@ int main(int argc, char * argv[])
                 exit(EXIT_FAILURE);
         }
 
+        if (make_dir(".server_repo", __FILE__, __LINE__) != 0)
+        {
+                fprintf(stderr, "Error making .server_repo\n");
+                exit(EXIT_FAILURE);
+        }
         // Setup signals
         struct sigaction new_action, old_action;
         /* Set up the structure to specify the new action. */
@@ -250,6 +272,7 @@ int main(int argc, char * argv[])
         }
 
         int i = 0;
+        queued = 0;
         while (TRUE)
         {
                 if ((new_socket = accept(server_fd, (struct sockaddr *)&address,
@@ -259,22 +282,28 @@ int main(int argc, char * argv[])
                     exit(EXIT_FAILURE);
                 }
 
+                printf("test\n");
 
                 //for each client request creates a thread and assign the client request to it to process
                 //so the main thread can entertain next request
                 if( pthread_create(&thread_id[i], NULL, client_comm, &new_socket) != 0 )
                         printf("Failed to create thread\n");
+                else
+                        printf("Succesfully accepted new client.\n");
                 i++;
+                queued++;
+                printf("%d\n", i);
                 if( i >= QUEUE_SIZE)
                 {
                         int j = 0;
-                        while(j >= QUEUE_SIZE)
+                        for(j = 0; j <= i; j++)
                         {
-                                pthread_join(thread_id[j++], NULL);
-                                i--;
+                                pthread_join(thread_id[j], NULL);
+                                printf("Removed thread %d.\n", j);
                         }
+                        i = 0;
+                        queued = 0;
                 }
-                printf("%d\n", i);
         }
         pthread_exit(NULL);
 

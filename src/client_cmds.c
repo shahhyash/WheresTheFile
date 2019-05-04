@@ -30,7 +30,7 @@ int init_socket()
         struct sockaddr_in serv_addr;
         if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0)
         {
-            printf("\n Socket creation error \n");
+            fprintf(stderr, "\n Socket creation error \n");
             return -1;
         }
 
@@ -42,15 +42,18 @@ int init_socket()
         // Convert IPv4 and IPv6 addresses from text to binary form
         if(inet_pton(AF_INET, IP, &serv_addr.sin_addr)<=0)
         {
-            printf("\nInvalid address/ Address not supported \n");
+            fprintf(stderr, "\nInvalid address/ Address not supported \n");
             return -1;
         }
 
         if (connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0)
         {
-            printf("\nConnection Failed \n");
+            fprintf(stderr, "\nConnection Failed \n");
             return -1;
         }
+        printf("Client has successfully connected to server.\n");
+
+
         return sock;
 }
 
@@ -61,6 +64,11 @@ int init_socket()
 int set_configure(char * IP, char * port)
 {
         int fd = open(".configure", O_WRONLY | O_CREAT | O_TRUNC, 00600);
+        if (fd == -1)
+        {
+                fprintf(stderr, "[configure] Error creating .configure. FILE %s. LINE: %d", __FILE__, __LINE__);
+                return 1;
+        }
         if (better_write(fd, IP, strlen(IP), __FILE__, __LINE__) <= 0)
         {
                 fprintf(stderr, "[configure] Error returned by better_write. FILE: %s. LINE: %d\n", __FILE__, __LINE__);
@@ -92,6 +100,11 @@ int get_configure(char * IP, int * PORT)
                 return 1;
         }
         int fd = open(".configure", O_RDONLY, 00600);
+        if (fd == -1)
+        {
+                fprintf(stderr, "[get_configure] Error reading .configure. FILE %s. LINE: %d", __FILE__, __LINE__);
+                return 1;
+        }
         int size = lseek(fd, 0, SEEK_END);
         char buffer[size+1];
         lseek(fd, 0, SEEK_SET);
@@ -139,6 +152,11 @@ int create_or_destroy(char * proj_name, int create)
                 if (better_read(sock , file_size_length_str , 3, __FILE__, __LINE__) <= 0)
                         return 1;
                 printf("file size length %s\n", file_size_length_str);
+                if (strcmp(file_size_length_str, "Err") == 0)
+                {
+                        fprintf(stderr, "Error returned by server.\n");
+                        return 1;
+                }
                 int file_size_length = 1;
                 sscanf(file_size_length_str, "%d", &file_size_length);
                 // Read size of file
@@ -158,20 +176,27 @@ int create_or_destroy(char * proj_name, int create)
                 printf("file: %s\n", file);
                 // char * decompressed = _decompress(file, 3);
                 /* Create local directory for project */
+                printf("%s\n", proj_name);
                 if (make_dir(proj_name, __FILE__, __LINE__) != 0)
                         return 1;
                 // Create .manifest
                 char manifest[strlen("/.manifest") + strlen(proj_name)];
                 sprintf(manifest, "%s/.manifest", proj_name);
                 int fd_man = open(manifest, O_WRONLY | O_CREAT | O_TRUNC, 00600);
+                if (fd_man == -1)
+                {
+                        fprintf(stderr, "[create] Error creating .manifest. FILE %s. LINE: %d", __FILE__, __LINE__);
+                        return 1;
+                }
                 if (better_write(fd_man, file, strlen(file), __FILE__, __LINE__) != 1)
                         return 1;
                 close(fd_man);
                 // free(decompressed);
         }
-        char buffer[30] = {0};
+        char buffer[31] = {0};
         printf("-->Sent message successfully.\n");
-        read( sock , buffer, 30);
+        if (better_read( sock , buffer, 30, __FILE__, __LINE__) != 1)
+                return 1;
         printf("Message from server:\t%s\n", buffer);
         return 0;
 }
@@ -182,17 +207,22 @@ int create_or_destroy(char * proj_name, int create)
  */
 int _add(char * proj_name, char * filename)
 {
-        // Remove if already in manifest
-        if(!_remove(proj_name, filename))
-                printf("[_add] File already in .manifest... replacing...\n");
         int pj_len = strlen(filename) + strlen(proj_name) + 2;
         char pj[pj_len];
         bzero(pj, pj_len);
         sprintf(pj, "%s/%s", proj_name, filename);
+        if (!file_exists(pj))
+        {
+                fprintf(stderr, "[_add] Error %s does not exist. FILE: %s. LINE: %d.\n", pj, __FILE__, __LINE__);
+                return 1;
+        }
+        // Remove if already in manifest
+        if(!_remove(proj_name, filename))
+        printf("[_add] File already in .manifest... replacing...\n");
         int fd_new_file = open(pj, O_RDWR, 00600);
         if (fd_new_file < 0)
         {
-                fprintf(stderr, "[add] Error opening %s. FILE: %s. LINE: %d.\n", filename, __FILE__, __LINE__);
+                fprintf(stderr, "[_add] Error opening %s. FILE: %s. LINE: %d.\n", filename, __FILE__, __LINE__);
                 return 1;
         }
 
@@ -214,36 +244,9 @@ int _add(char * proj_name, char * filename)
         int fd_man = open(manifest, O_RDWR, 00600);
         if (fd_man < 0)
         {
-                fprintf(stderr, "[add] Error opening %s. FILE: %s. LINE: %d.\n", manifest, __FILE__, __LINE__);
+                fprintf(stderr, "[_add] Error opening %s. FILE: %s. LINE: %d.\n", manifest, __FILE__, __LINE__);
                 return 1;
         }
-        // Read version number
-        /*
-        int i = 0;
-        while (TRUE)
-        {
-                char temp[2] = {0,0};
-                if (better_read(fd_man, temp, 1, __FILE__, __LINE__) != 1)
-                        return 1;
-                if (*temp == '\n')
-                        break;
-                i++;
-
-        }
-        lseek(fd_man, 0, SEEK_SET);
-        char ver_str[i+1];
-        bzero(ver_str, i+1);
-        i = 0;
-        while (TRUE)
-        {
-                char temp[2] = {0,0};
-                if (better_read(fd_man, temp, 1, __FILE__, __LINE__) != 1)
-                        return 1;
-                if (*temp == '\n')
-                        break;
-                ver_str[i] = *temp;
-        }
-        */
         char * ver_str = "1";   // Version 1 since just added
         char hex_hash[SHA256_DIGEST_LENGTH*2+1];
         bzero(hex_hash, SHA256_DIGEST_LENGTH*2+1);
@@ -289,11 +292,22 @@ int _remove(char * proj_name, char * filename)
         char name[length];
         bzero(name, length);
         sprintf(name, "%s/%s", proj_name, filename);
+        if (!file_exists(pj))
+        {
+                fprintf(stderr, "[_add] Error %s does not exist. FILE: %s. LINE: %d.\n", pj, __FILE__, __LINE__);
+                return 1;
+        }
         int fd = open(pj, O_RDWR, 00600);
+        if (fd == -1)
+        {
+                fprintf(stderr, "[_remove] Error opening %s. FILE: %s. LINE: %d.\n", pj, __FILE__, __LINE__);
+                return 1;
+        }
         int size = lseek(fd, 0, SEEK_END);
         lseek(fd, 0, SEEK_SET);
         char buf[size];
-        better_read(fd, buf, size, __FILE__, __LINE__);
+        if (better_read(fd, buf, size, __FILE__, __LINE__) != 1)
+                return 1;
         // printf("pj: %s\nbuf: %s\n", name, buf);
         char * line = strstr(buf, name);
         if (line == NULL)
@@ -310,8 +324,15 @@ int _remove(char * proj_name, char * filename)
         // printf("%d\n", num_bytes);
         close(fd);
         int fd1 = open(pj, O_RDWR | O_TRUNC, 00600);
-        better_write(fd1, buf, num_bytes-2, __FILE__, __LINE__);
-        better_write(fd1, &buf[end], strlen(buf)-end, __FILE__, __LINE__);
+        if (fd1 == -1)
+        {
+                fprintf(stderr, "[_remove] Error opening %s. FILE: %s. LINE: %d.\n", pj, __FILE__, __LINE__);
+                return 1;
+        }
+        if (better_write(fd1, buf, num_bytes-2, __FILE__, __LINE__) != 1)
+                return 1;
+        if (better_write(fd1, &buf[end], strlen(buf)-end, __FILE__, __LINE__) != 1)
+                return 1;
 
         close(fd1);
         printf("[_add] File removed successfully.\n");
@@ -319,7 +340,7 @@ int _remove(char * proj_name, char * filename)
 }
 
 /*
- *      Clones repository from server. Returns 1 on success; 0 otherwise.
+ *      Clones repository from server. Returns 0 on success; 1 otherwise.
  */
 int checkout(char * proj_name)
 {
@@ -341,6 +362,16 @@ int checkout(char * proj_name)
         sprintf(msg, "%s%s%d%s", cmd, leading_zeros, proj_name_length, proj_name);
         if (better_send(sock , msg , strlen(msg), 0, __FILE__, __LINE__) <= 0)
                 return 1;
+        char buf[31];
+        bzero(buf, 31);
+        if (better_read(sock, buf, 30, __FILE__, __LINE__) != 1)
+                return 1;
+        printf("Message received from server: %s\n", buf);
+        if (strcmp(buf, "Error: Project does not exist.") == 0)
+        {
+                fprintf(stderr, "Server returned error.\n");
+                return 1;
+        }
         char * decompressed = receive_file(sock);
         printf("decompressed %s\n", decompressed);
         recursive_unzip(decompressed);

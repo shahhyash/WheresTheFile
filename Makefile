@@ -1,7 +1,7 @@
 CC=gcc
 CFLAGS=-Wall -g -fsanitize=address -std=gnu90
 OUTPUTS=build bin
-FOLDERS=bin build projects
+FOLDERS=bin build
 
 all: build/server_cmds.o build/client_cmds.o build/manifest_utils.o build/lib.a  build/threads_and_locks.o $(FOLDERS)
 	$(CC) $(CFLAGS) -o bin/WTFserver src/server_main.c build/server_cmds.o build/threads_and_locks.o build/lib.a -lpthread -lz
@@ -33,9 +33,6 @@ build:
 
 bin:
 	mkdir bin
-
-projects:
-	mkdir projects
 
 clean:
 	rm -r $(OUTPUTS)
