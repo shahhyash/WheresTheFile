@@ -311,10 +311,10 @@ int _remove(char * proj_name, char * filename)
         close(fd);
         int fd1 = open(pj, O_RDWR | O_TRUNC, 00600);
         better_write(fd1, buf, num_bytes-2, __FILE__, __LINE__);
-        better_write(fd1, &buf[end], strlen(buf)-end, __FILE__, __LINE__);
+        better_write(fd1, &buf[end], size-end, __FILE__, __LINE__);
 
         close(fd1);
-        printf("[_add] File removed successfully.\n");
+        printf("[_remove] File removed successfully.\n");
         return 0;
 }
 
@@ -493,13 +493,8 @@ int _update(char * proj_name)
 
         if (num_updates == 0)
         {
-           printf("Client copy is up to date.\n");     
+                printf("Client copy is up to date.\n");     
         }
-        else
-        {
-                /* write to update file? */
-        }
-
 
         free_manifest(client_manifest);
         free_manifest(server_manifest);

@@ -97,7 +97,7 @@ char * fetch_server_manifest(char * proj_name)
 
 char * fetch_client_manifest(char * proj_name)
 {
-    char manifest_path[strlen("/.manifest") + strlen(proj_name)];
+    char manifest_path[strlen("/.manifest") + strlen(proj_name) + 1];
     sprintf(manifest_path, "%s/.manifest", proj_name);
     int fd_man = open(manifest_path, O_RDONLY);
 
