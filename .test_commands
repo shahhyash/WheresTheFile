@@ -1,0 +1,9 @@
+1
+7
+bin/WTF create example
+make example/file.txt
+bin/WTF add example file.txt
+rm -rf example
+bin/WTF checkout example
+bin/WTF destroy example
+rm -rf example
