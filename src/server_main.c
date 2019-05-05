@@ -18,7 +18,13 @@
 int queued = 0;
 extern pthread_mutex_t table_lck;
 extern pthread_mutex_t access_lock;
-pthread_t thread_id[QUEUE_SIZE+10];
+// pthread_t thread_id[QUEUE_SIZE+10];
+
+typedef struct _thread_node {
+        pthread_t thread_id;
+        struct _thread_node * next;
+} thread_node;
+thread_node * front = NULL;
 
 /*
  *      Prints usage to stdout
@@ -179,11 +185,21 @@ void * client_comm(void * args)
 
 void termination_handler (int signum)
 {
-        int j = 0;
-        while(j < queued)
+        // int j = 0;
+        // while(j < queued)
+        // {
+        //         pthread_join(thread_id[j++], NULL);
+        //         printf("Removed thread %d.\n", j);
+        // }
+        thread_node * ptr = front;
+        int j = 1;
+        while (ptr != NULL)
         {
-                pthread_join(thread_id[j++], NULL);
-                printf("Removed thread %d.\n", j);
+                pthread_join(ptr->thread_id, NULL);
+                 printf("Removed thread %d.\n", j++);
+                thread_node * old = ptr;
+                ptr = ptr->next;
+                free(old);
         }
         printf("Server closed.\n");
         remove_dir(".server_repo");
@@ -271,8 +287,8 @@ int main(int argc, char * argv[])
                 return 1;
         }
 
-        int i = 0;
         queued = 0;
+        front = NULL;
         while (TRUE)
         {
                 if ((new_socket = accept(server_fd, (struct sockaddr *)&address,
@@ -283,27 +299,52 @@ int main(int argc, char * argv[])
                 }
 
                 printf("test\n");
-
+                thread_node * new = (thread_node *) malloc(sizeof(thread_node));
+                new->next = front;
                 //for each client request creates a thread and assign the client request to it to process
                 //so the main thread can entertain next request
-                if( pthread_create(&thread_id[i], NULL, client_comm, &new_socket) != 0 )
+                if( pthread_create(&new->thread_id, NULL, client_comm, &new_socket) != 0 )
+                {
                         printf("Failed to create thread\n");
+                }
                 else
                         printf("Succesfully accepted new client.\n");
-                i++;
+                front = new;
                 queued++;
-                printf("%d\n", i);
-                if( i >= QUEUE_SIZE)
+                printf("%d\n", queued);
+                while (queued >= QUEUE_SIZE)
                 {
-                        int j = 0;
-                        for(j = 0; j <= i; j++)
+                        thread_node * ptr = front;
+                        while (ptr->next != NULL)
                         {
-                                pthread_join(thread_id[j], NULL);
-                                printf("Removed thread %d.\n", j);
+                                if (ptr->next->next == NULL)
+                                {
+                                        thread_node * prev = ptr;
+                                        ptr = ptr->next;
+                                        prev->next = NULL;
+                                }
+                                else
+                                        ptr = ptr->next;
+
                         }
-                        i = 0;
-                        queued = 0;
+                        pthread_join(ptr->thread_id, NULL);
+                         printf("Removed thread %d.\n", queued);
+                        free(ptr);
+                        queued--;
+
                 }
+                // if( queued >= QUEUE_SIZE)
+                // {
+                //         while (queued )
+                //         int j = 0;
+                //         for(j = 0; j <= i; j++)
+                //         {
+                //                 pthread_join(thread_id[j], NULL);
+                //                 printf("Removed thread %d.\n", j);
+                //         }
+                //         i = 0;
+                //         queued = 0;
+                // }
         }
         pthread_exit(NULL);
 
