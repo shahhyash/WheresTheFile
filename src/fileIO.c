@@ -180,6 +180,61 @@ void remove_dir(char * dir)
         closedir(dirdes);
 }
 /*
+ *      Compresses name buffer and sends it to client.
+ *      Returns 0 on success, 1 otherwise.
+ */
+int compress_and_send(int sd, char * name)
+{
+        char * zipped = recursive_zip(name, TRUE);
+        printf("zipped: %s\n", zipped);
+        int zipped_size = strlen(zipped);
+        int num_digits = 0;
+        int i = zipped_size;
+        while (i != 0)
+        {
+                num_digits++;
+                i /= 10;
+        }
+        // Send three digit length of file size
+        char file_size_str[4] = {'0','0','0',0};
+        if (num_digits < 10)
+                sprintf(&file_size_str[2], "%d", num_digits);
+        else if (num_digits < 100)
+                sprintf(&file_size_str[1], "%d", num_digits);
+        else
+                sprintf(&file_size_str[0], "%d", num_digits);
+        printf("sending %s\n", file_size_str);
+        if (better_send(sd, file_size_str, 3, 0, __FILE__, __LINE__) != 1)
+        {
+                free(zipped);
+                return 1;
+        }
+        char zip_size_str[10] = {0,0,0,0,0,0,0,0,0,0};
+        sprintf(zip_size_str, "%d", zipped_size);
+        // Send file size
+        printf("sending size %s\n", zip_size_str);
+        fflush(stdout);
+        if (better_send(sd, zip_size_str, strlen(zip_size_str), 0, __FILE__, __LINE__) != 1)
+        {
+                free(zipped);
+                return 1;
+        }
+        int c_s;
+        char * compressed = _compress(zipped, &c_s);
+        free(zipped);
+        char c_s_str[10] = {0,0,0,0,0,0,0,0,0,0};
+        sprintf(c_s_str, "%d", c_s);
+        // Send compressed file
+        if (send_file(sd, compressed, c_s_str))
+        {
+                fprintf(stderr, "[checkout] send_file returned error. FILE: %s. LINE: %d.\n", __FILE__, __LINE__);
+                free(compressed);
+                return 1;
+        }
+        free(compressed);
+        return 0;
+}
+/*
  *      Sends data stored in file filename through socket descriptor sd.
  *      Returns 0 on success; 1 otherwise.
  *      Protocol: (i) Sends 3 digits that is the number of digits of the file size.

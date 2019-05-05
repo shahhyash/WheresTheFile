@@ -37,56 +37,17 @@ int checkout(int sd, char * proj_name)
         pthread_mutex_lock(&access_lock);
         num_access++;
         pthread_mutex_unlock(&access_lock);
-        char new_proj_name[strlen(proj_name)+9];
+        char new_proj_name[strlen(proj_name)+1+strlen(".server_repo/")];
+        bzero(new_proj_name, strlen(proj_name)+1+strlen(".server_repo/"));
         sprintf(new_proj_name, ".server_repo/%s", proj_name);
-        char * zipped = recursive_zip(new_proj_name, TRUE);
+
+        int ret = compress_and_send(sd, new_proj_name);
+
         pthread_mutex_lock(&access_lock);
         num_access--;
         pthread_mutex_unlock(&access_lock);
         pthread_mutex_unlock(lock);
-        printf("zipped: %s\n", zipped);
-        int zipped_size = strlen(zipped);
-        int num_digits = 0;
-        int i = zipped_size;
-        while (i != 0)
-        {
-                num_digits++;
-                i /= 10;
-        }
-
-        // Send three digit length of file size
-        char file_size_str[4] = {'0','0','0',0};
-        if (num_digits < 10)
-                sprintf(&file_size_str[2], "%d", num_digits);
-        else if (num_digits < 100)
-                sprintf(&file_size_str[1], "%d", num_digits);
-        else
-                sprintf(&file_size_str[0], "%d", num_digits);
-        printf("sending %s\n", file_size_str);
-        if (better_send(sd, file_size_str, 3, 0, __FILE__, __LINE__) != 1)
-        {
-                free(zipped);
-                return 1;
-        }
-        char zip_size_str[10] = {0,0,0,0,0,0,0,0,0,0};
-        sprintf(zip_size_str, "%d", zipped_size);
-        // Send file size
-        printf("sending size %s\n", zip_size_str);
-        fflush(stdout);
-        if (better_send(sd, zip_size_str, strlen(zip_size_str), 0, __FILE__, __LINE__) != 1)
-        {
-                free(zipped);
-                return 1;
-        }
-        int c_s;
-        char * compressed = _compress(zipped, &c_s);
-        free(zipped);
-        char c_s_str[10] = {0,0,0,0,0,0,0,0,0,0};
-        sprintf(c_s_str, "%d", c_s);
-        // Send compressed file
-        send_file(sd, compressed, c_s_str);
-        free(compressed);
-        return 0;
+        return ret;
 }
 
 /*
@@ -203,7 +164,8 @@ int destroy(char * proj_name)
                 pthread_mutex_unlock(&table_lck);
                 return 1;
         }
-        char new_proj_name[strlen(proj_name)+9];
+        char new_proj_name[strlen(proj_name)+1+strlen(".server_repo/")];
+        bzero(new_proj_name, strlen(proj_name)+1+strlen(".server_repo/"));
         sprintf(new_proj_name, ".server_repo/%s", proj_name);
         if (!dir_exists(new_proj_name))
         {
@@ -223,4 +185,43 @@ int destroy(char * proj_name)
         is_table_lcked = FALSE;
         pthread_mutex_unlock(&table_lck);
         return 0;
+}
+
+/*
+ *      Sends manifest for project proj_name to client.
+ *      Returns 0 on success, 1 otherwise.
+ */
+int send_manifest(int sd, char * proj_name)
+{
+        // Return if .server_repo folder does not already exist
+        if (dir_exists(".server_repo") == 0)
+                return 1;
+        pthread_mutex_t * lock = get_project_lock(proj_name);
+        if (lock == NULL)
+                return 1;
+        else
+        {
+                if (better_send(sd, "Found repository. Sending now.", 30, 0, __FILE__, __LINE__) != 1)
+                        return 1;
+        }
+        while (is_table_lcked)
+                printf("table locked.\n");
+        pthread_mutex_lock(lock);
+        // Mark another thread as accessing
+        pthread_mutex_lock(&access_lock);
+        num_access++;
+        pthread_mutex_unlock(&access_lock);
+        char man_name[strlen(proj_name)+1+strlen(".server_repo/")+strlen("/.manifest")];
+        bzero(man_name, strlen(proj_name)+1+strlen(".server_repo/")+strlen("/.manifest"));
+        // Read and compress manifest
+        sprintf(man_name, ".server_repo/%s/.manifest", proj_name);
+
+        int ret = compress_and_send(sd, man_name);
+
+        pthread_mutex_lock(&access_lock);
+        num_access--;
+        pthread_mutex_unlock(&access_lock);
+        pthread_mutex_unlock(lock);
+
+        return ret;
 }

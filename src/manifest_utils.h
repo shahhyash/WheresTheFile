@@ -18,7 +18,7 @@ typedef struct manifest_entry {
 manifest_entry * read_manifest_file(char * file_contents);
 
 /* fetch manifest file contents from server from project name */
-char * fetch_server_manifest(char * proj_name);
+char * fetch_server_manifest(int sd, char * proj_name);
 
 /* fetch manifest file contents from local copy of project */
 char * fetch_client_manifest(char * proj_name);

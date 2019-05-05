@@ -15,10 +15,8 @@
 //#include <errno.h>              // Read Errors set
 
 #define QUEUE_SIZE 20
-int queued = 0;
 extern pthread_mutex_t table_lck;
 extern pthread_mutex_t access_lock;
-// pthread_t thread_id[QUEUE_SIZE+10];
 
 typedef struct _thread_node {
         pthread_t thread_id;
@@ -81,9 +79,16 @@ void * client_comm(void * args)
                 fprintf(stderr, "Error\n");
                 close(sd);
                 printf("Disconnected client.\n");
+                better_send(sd, "Err", 3, 0, __FILE__, __LINE__);
                 pthread_exit(NULL);
         }
         printf("Project name: %s\n", proj_name);
+        if (better_send(sd, "Ok!", 3, 0, __FILE__, __LINE__) != 1)
+        {
+                fprintf(stderr, "Error\n");
+                close(sd);
+                pthread_exit(NULL);
+        }
         if (strcmp(command, "cre") == 0)
         {
                 if (create(sd, proj_name))
@@ -154,6 +159,29 @@ void * client_comm(void * args)
                         }
                 }
         }
+        else if (strcmp(command, "man") == 0)
+        {
+                if (send_manifest(sd, proj_name))
+                {
+                        if (better_send(sd, "Error: Project does not exist.", 30, 0, __FILE__, __LINE__) <= 0)
+                        {
+                                fprintf(stderr, "[client_comm] Error returned by better_send. FILE: %s. LINE: %d\n", __FILE__, __LINE__);
+                                close(sd);
+                                printf("Disconnected client.\n");
+                                pthread_exit(NULL);
+                        }
+                }
+                else
+                {
+                        if (better_send(sd, "Sent manifest successfully!   ", 30, 0, __FILE__, __LINE__) <= 0)
+                        {
+                                fprintf(stderr, "[client_comm] Error returned by better_send. FILE: %s. LINE: %d\n", __FILE__, __LINE__);
+                                close(sd);
+                                printf("Disconnected client.\n");
+                                pthread_exit(NULL);
+                        }
+                }
+        }
         else
         {
                 fprintf(stderr, "[client_comm] Invalid command received.\n");
@@ -185,12 +213,6 @@ void * client_comm(void * args)
 
 void termination_handler (int signum)
 {
-        // int j = 0;
-        // while(j < queued)
-        // {
-        //         pthread_join(thread_id[j++], NULL);
-        //         printf("Removed thread %d.\n", j);
-        // }
         thread_node * ptr = front;
         int j = 1;
         while (ptr != NULL)
@@ -287,7 +309,7 @@ int main(int argc, char * argv[])
                 return 1;
         }
 
-        queued = 0;
+        int queued = 0;
         front = NULL;
         while (TRUE)
         {
@@ -301,17 +323,17 @@ int main(int argc, char * argv[])
                 printf("test\n");
                 thread_node * new = (thread_node *) malloc(sizeof(thread_node));
                 new->next = front;
+                front = new;
                 //for each client request creates a thread and assign the client request to it to process
                 //so the main thread can entertain next request
                 if( pthread_create(&new->thread_id, NULL, client_comm, &new_socket) != 0 )
-                {
                         printf("Failed to create thread\n");
-                }
                 else
                         printf("Succesfully accepted new client.\n");
-                front = new;
+
                 queued++;
                 printf("%d\n", queued);
+
                 while (queued >= QUEUE_SIZE)
                 {
                         thread_node * ptr = front;
@@ -333,18 +355,6 @@ int main(int argc, char * argv[])
                         queued--;
 
                 }
-                // if( queued >= QUEUE_SIZE)
-                // {
-                //         while (queued )
-                //         int j = 0;
-                //         for(j = 0; j <= i; j++)
-                //         {
-                //                 pthread_join(thread_id[j], NULL);
-                //                 printf("Removed thread %d.\n", j);
-                //         }
-                //         i = 0;
-                //         queued = 0;
-                // }
         }
         pthread_exit(NULL);
 

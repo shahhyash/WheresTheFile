@@ -150,6 +150,11 @@ char * recursive_zip(char * _filename, int is_server)
         // Return compressed file
         {
                 int fd = open(_filename, O_RDONLY, 00600);
+                if (fd == -1)
+                {
+                        fprintf("[decompress] Error opening file %s. FILE: %s. LINE: %d.\n", _filename, __FILE__, __LINE__);
+                        return NULL;
+                }
                 int size = lseek(fd, 0, SEEK_END);
                 lseek(fd, 0, SEEK_SET);
                 char size_str[10] = {0,0,0,0,0,0,0,0,0,0};

@@ -61,6 +61,36 @@ int init_socket()
 }
 
 /*
+ *      Sends project name and command to server. Handles communication.
+ *      Returns 0 on success, 1 otherwise.
+ */
+int send_cmd_proj(int sock, char * proj_name, char * cmd)
+{
+        int proj_name_length = strlen(proj_name);
+        char msg[6 + proj_name_length];
+        bzero(msg, 6 + proj_name_length);
+        char * leading_zeros = "";
+        if (proj_name_length < 10)
+                leading_zeros = "00";
+        else if (proj_name_length < 100)
+                leading_zeros = "0";
+        sprintf(msg, "%s%s%d%s", cmd, leading_zeros, proj_name_length, proj_name);
+        if (better_send(sock , msg , strlen(msg), 0, __FILE__, __LINE__) <= 0)
+                return 1;
+        char buf[4];
+        bzero(buf, 4);
+        if (better_read(sock, buf, 3, __FILE__, __LINE__) != 1)
+                return 1;
+        if (strcmp(buf, "Err") == 0)
+        {
+                fprintf(stderr, "Error returned by server.\n");
+                return 1;
+        }
+        printf("Message from server:\t%s\n", buf);
+        return 0;
+}
+
+/*
  *      Writes IP and port to .configure file. Overwrites .configure if it already
  *      exists. Returns 0 on success; 1 otherwise.
  */
@@ -134,20 +164,14 @@ int get_configure(char * IP, int * PORT)
 int create_or_destroy(char * proj_name, int create)
 {
         int sock = init_socket();
-        int proj_name_length = strlen(proj_name);
-        char msg[6 + proj_name_length];
-        bzero(msg, 6 + proj_name_length);
-        char * leading_zeros = "";
-        if (proj_name_length < 10)
-                leading_zeros = "00";
-        else if (proj_name_length < 100)
-                leading_zeros = "0";
+
         char * cmd = "cre";
         if (!create)
-                cmd = "des";
-        sprintf(msg, "%s%s%d%s", cmd, leading_zeros, proj_name_length, proj_name);
-        if (better_send(sock , msg , strlen(msg), 0, __FILE__, __LINE__) <= 0)
+        cmd = "des";
+        if (send_cmd_proj(sock, proj_name, cmd))
                 return 1;
+
+
         if (create)
         {
                 // Read length of size of file
@@ -221,7 +245,7 @@ int _add(char * proj_name, char * filename)
         }
         // Remove if already in manifest
         if(!_remove(proj_name, filename))
-        printf("[_add] File already in .manifest... replacing...\n");
+                printf("[_add] File already in .manifest... replacing...\n");
         int fd_new_file = open(pj, O_RDWR, 00600);
         if (fd_new_file < 0)
         {
@@ -353,18 +377,10 @@ int checkout(char * proj_name)
                 return 1;
         }
         int sock = init_socket();
-        int proj_name_length = strlen(proj_name);
-        char msg[6 + proj_name_length];
-        bzero(msg, 6 + proj_name_length);
-        char * leading_zeros = "";
-        if (proj_name_length < 10)
-                leading_zeros = "00";
-        else if (proj_name_length < 100)
-                leading_zeros = "0";
-        char * cmd = "che";
-        sprintf(msg, "%s%s%d%s", cmd, leading_zeros, proj_name_length, proj_name);
-        if (better_send(sock , msg , strlen(msg), 0, __FILE__, __LINE__) <= 0)
+
+        if (send_cmd_proj(sock, proj_name, "che"))
                 return 1;
+
         char buf[31];
         bzero(buf, 31);
         if (better_read(sock, buf, 30, __FILE__, __LINE__) != 1)
@@ -393,12 +409,11 @@ void write_to_update(int fd, char code, char * file_path)
 }
 
 /*
- *
+ *      Creates .update file to track any server changes not present in local version
+ *      Returns 0 on success, 1 otherwise.
  */
 int _update(char * proj_name)
 {
-        /* begin by initializing a connection to the server */
-        // int sock = init_socket();
 
         /* check if local version of project exists */
         if (!dir_exists(proj_name))
@@ -416,8 +431,20 @@ int _update(char * proj_name)
                 return 1;
         }
 
+        /* begin by initializing a connection to the server */
+        int sd = init_socket();
+        if (sd == -1)
+        {
+                fprintf(stderr, "[_update] Error connecting to server.");
+                return 1;
+        }
         /* fetch manifest file from server and store in a linked list */
-        char * manifest_contents = fetch_server_manifest(proj_name);
+        char * manifest_contents = fetch_server_manifest(sd, proj_name);
+        if (manifest_contents == NULL)
+        {
+                fprintf(stderr, "[_update] Error creating manifest. FILE %s. LINE: %d.\n", __FILE__, __LINE__);
+                return 1;
+        }
         manifest_entry * server_manifest = read_manifest_file(manifest_contents);
         free(manifest_contents); /* free buffer of manifest file bc we don't need it anymore */
 
@@ -428,6 +455,11 @@ int _update(char * proj_name)
 
         /* create and open .Update file */
         int fd_update = open(dot_update_path, O_WRONLY | O_CREAT, 00600);
+        if (fd_update == -1)
+        {
+                fprintf(stderr, "[_update] Error opening file %s. FILE: %s. LINE: %d\n", dot_update_path, __FILE__, __LINE__);
+                return 1;
+        }
 
         /* count number of updates */
         int num_updates = 0;
@@ -435,7 +467,7 @@ int _update(char * proj_name)
         /* iterate through all items in server manifest and compare against client copy */
         manifest_entry * server_copy = server_manifest;
         manifest_entry * client_copy = NULL;
-        while (server_copy)
+        while (server_copy != NULL)
         {
                 if (server_copy->file_path && server_copy->hash_code) /* check if manifest item is not the root item */
                 {
@@ -452,14 +484,14 @@ int _update(char * proj_name)
                         }
 
                         /* successfully found manifest entry for same file path */
-                        if (client_copy)
-                        {       
+                        if (client_copy != NULL)
+                        {
                                 int version_cmp = server_copy->version - client_copy->version;
                                 int hash_cmp = strcmp(server_copy->hash_code, client_copy->hash_code);
 
                                 if (version_cmp == 0 && hash_cmp == 0)
                                 {
-                                        
+
                                 }
                                 else if (version_cmp == 0 && hash_cmp != 0)
                                 {
@@ -482,7 +514,7 @@ int _update(char * proj_name)
                                                 free_manifest(server_manifest);
                                                 return 1;
                                         }
-                                        
+
                                 }
                                 else
                                 {
@@ -497,7 +529,7 @@ int _update(char * proj_name)
                                                 free_manifest(server_manifest);
                                                 return 1;
                                         }
-                                        
+
                                 }
                         }
                         else    /* file exists on server copy, but not in clients, should probably be added */
@@ -506,7 +538,7 @@ int _update(char * proj_name)
                                 write_to_update(fd_update, 'A', server_copy->file_path);
                                 ++num_updates;
                         }
-                        
+
                 }
 
                 /* go to next item in manifest */
@@ -515,7 +547,7 @@ int _update(char * proj_name)
 
         /* iterate through client to see if there's any files that need to be deleted */
         client_copy = client_manifest->next;
-        while (client_copy)
+        while (client_copy != NULL)
         {
                 int found = 0;
                 server_copy = server_manifest->next;
@@ -544,7 +576,7 @@ int _update(char * proj_name)
 
         if (num_updates == 0)
         {
-                printf("Client copy is up to date.\n");     
+                printf("Client copy is up to date.\n");
         }
 
         close(fd_update);

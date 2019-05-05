@@ -32,11 +32,17 @@ int set_configure(char * IP, char * port);
  */
 int _remove(char * proj_name, char * filename);
 /*
+ *      Sends project name and command to server. Handles communication.
+ *      Returns 0 on success, 1 otherwise.
+ */
+int send_cmd_proj(int sock, char * proj_name, char * cmd);
+/*
  *      Clones repository from server. Returns 1 on success; 0 otherwise.
  */
 int checkout(char * proj_name);
 /*
  *      Creates .update file to track any server changes not present in local version
+ *      Returns 0 on success, 1 otherwise.
  */
 int _update(char * proj_name);
 /*
