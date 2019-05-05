@@ -348,6 +348,16 @@ int checkout(char * proj_name)
         return 0;
 }
 
+void write_to_update(int fd, char code, char * file_path)
+{
+        int size = strlen(file_path) + 4;
+        char new_update[size];
+        bzero(new_update, size);
+        sprintf(new_update, "%c %s\n", code, file_path);
+        lseek(fd, 0, SEEK_END);
+        better_write(fd, new_update, size-1, __FILE__, __LINE__);
+}
+
 /*
  *
  */
@@ -381,6 +391,9 @@ int _update(char * proj_name)
         manifest_contents = fetch_client_manifest(proj_name);
         manifest_entry * client_manifest = read_manifest_file(manifest_contents);
         free(manifest_contents);
+
+        /* create and open .Update file */
+        int fd_update = open(dot_update_path, O_WRONLY | O_CREAT, 00600);
 
         /* count number of updates */
         int num_updates = 0;
@@ -417,6 +430,7 @@ int _update(char * proj_name)
                                 else if (version_cmp == 0 && hash_cmp != 0)
                                 {
                                         printf("U  %s\n", server_copy->file_path);
+                                        write_to_update(fd_update, 'U', server_copy->file_path);
                                         ++num_updates;
                                 }
                                 else if (version_cmp != 0 && hash_cmp == 0)
@@ -424,6 +438,7 @@ int _update(char * proj_name)
                                         if (server_manifest->version != client_manifest->version)
                                         {
                                                 printf("M  %s\n", server_copy->file_path);
+                                                write_to_update(fd_update, 'M', server_copy->file_path);
                                                 ++num_updates;
                                         }
                                         else
@@ -454,6 +469,7 @@ int _update(char * proj_name)
                         else    /* file exists on server copy, but not in clients, should probably be added */
                         {
                                 printf("A  %s\n", server_copy->file_path);
+                                write_to_update(fd_update, 'A', server_copy->file_path);
                                 ++num_updates;
                         }
                         
@@ -485,6 +501,7 @@ int _update(char * proj_name)
                 {
                         /* client copy probably doesn't exist on server anymore, mark for deletion */
                         printf("D  %s\n", client_copy->file_path);
+                        write_to_update(fd_update, 'D', client_copy->file_path);
                         ++num_updates;
                 }
 
@@ -496,8 +513,15 @@ int _update(char * proj_name)
                 printf("Client copy is up to date.\n");     
         }
 
+        close(fd_update);
+
         free_manifest(client_manifest);
         free_manifest(server_manifest);
 
         return 0;
+}
+
+int _upgrade(char * proj_name)
+{
+
 }

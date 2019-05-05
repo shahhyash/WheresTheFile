@@ -74,6 +74,16 @@ int main(int argc, char * argv[])
                 }
                 return _update(argv[2]);
         }
+        else if (strcmp(argv[1], "upgrade") == 0)
+        {
+                if (argc != 3)
+                {
+                        fprintf(stderr, "Usage: ./WTF upgrade <project_name\n");
+                        exit(EXIT_FAILURE);
+                }
+
+                return _upgrade(argv[2]);
+        }
         else if (strcmp(argv[1], "checkout") == 0)
         {
                 if (argc != 3)

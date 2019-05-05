@@ -39,5 +39,9 @@ int checkout(char * proj_name);
  *      Creates .update file to track any server changes not present in local version
  */
 int _update(char * proj_name);
+/*
+ *      Uses .Update file to perform server operations and update client copies of files
+ */
+int _upgrade(char * proj_name);
 
 #endif
