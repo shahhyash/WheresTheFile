@@ -332,9 +332,10 @@ int _remove(char * proj_name, char * filename)
         }
         int size = lseek(fd, 0, SEEK_END);
         lseek(fd, 0, SEEK_SET);
-        char buf[size];
+        char buf[size+1];
         if (better_read(fd, buf, size, __FILE__, __LINE__) != 1)
                 return 1;
+        buf[size]='\0'; /* add string termination so that substring search doesn't look further than end of file */
         // printf("pj: %s\nbuf: %s\n", name, buf);
         char * line = strstr(buf, name);
         if (line == NULL)
@@ -414,7 +415,6 @@ void write_to_update(int fd, char code, char * file_path)
  */
 int _update(char * proj_name)
 {
-
         /* check if local version of project exists */
         if (!dir_exists(proj_name))
         {
@@ -592,5 +592,76 @@ int _update(char * proj_name)
 
 int _upgrade(char * proj_name)
 {
+        /* check if local version of project exists */
+        if (!dir_exists(proj_name))
+        {
+                fprintf(stderr, "[_upgrade] ERROR: Project does not exist locally.\n");
+                return 1;
+        }
+
+        /* check if .Update exists from previous iteration - if it does, direct user to run upgrade first */
+        char dot_update_path[strlen(proj_name) + strlen("/.Update")];
+        sprintf(dot_update_path, "%s/.Update", proj_name);
+        if (!file_exists(dot_update_path))
+        {
+                fprintf(stderr, "[_upgrade] ERROR: An existing .Update file does not exist. Please run update before running upgrade.\n");
+                return 1;
+        }
+
+        /* begin by initializing a connection to the server */
+        int sd = init_socket();
+        if (sd == -1)
+        {
+                fprintf(stderr, "[_upgrade] Error connecting to server.");
+                return 1;
+        }
+
+        /* fetch manifest file from server and store in a linked list - if it is unable to fetch from server it might not be a valid project */
+        char * manifest_contents = fetch_server_manifest(sd, proj_name);
+        if (manifest_contents == NULL)
+        {
+                fprintf(stderr, "[_update] Error fetching manifest. FILE %s. LINE: %d.\n", __FILE__, __LINE__);
+                return 1;
+        }
+        manifest_entry * server_manifest = read_manifest_file(manifest_contents);
+        free(manifest_contents); /* free buffer of manifest file bc we don't need it anymore */
+
+        /* fetch list of required updates for this project */
+        update_entry * updates = fetch_updates(proj_name);
+        update_entry * update_ptr = updates;
+
+        while (update_ptr)
+        {
+                if (update_ptr->code == 'M')
+                {
+
+                }
+                else if (update_ptr->code == 'A')
+                {
+
+                }
+                else if (update_ptr->code == 'D')
+                {
+                        int filepath_start = strlen(proj_name) + 1;
+                        printf("[upgrade] Removing file %s from manifest for project %s.\n", &update_ptr->file_path[filepath_start], proj_name);
+                        _remove(proj_name, &update_ptr->file_path[filepath_start]);
+                }
+                else
+                {
+                        fprintf(stderr, "[upgrade] ERROR: Invalid update code read: %c.\n", update_ptr->code);
+                }
+
+                update_ptr = update_ptr->next;
+        }
+
+        /* free allocated resources */
+        free_manifest(server_manifest);
+        free_updates(updates);
+
+        /* remove update file after performing operations */
+        char update_path[strlen("/.Update" + strlen(proj_name) + 1)];
+        sprintf(update_path, "%s/.Update", proj_name);
+        remove(update_path);
+
         return 0;
 }

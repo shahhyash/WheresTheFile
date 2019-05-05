@@ -27,42 +27,42 @@ manifest_entry * read_manifest_file(char * file_contents)
         char * manifest_line = strtok_r(file_contents, "\n", &line_saveptr);
         while (manifest_line)
         {
-                char *item_saveptr, *token, *file_path, *hash_code;
-                int mode = 1, version;
-                token = strtok_r(manifest_line, " ", &item_saveptr);
-                while(token)
-                {
-                        if (mode == 1)
-                                version = atoi(token);
+            char *item_saveptr, *token, *file_path, *hash_code;
+            int mode = 1, version;
+            token = strtok_r(manifest_line, " ", &item_saveptr);
+            while(token)
+            {
+                    if (mode == 1)
+                            version = atoi(token);
 
-                        if (mode == 2)
-                        {
-                                file_path = malloc(strlen(token) + 1);
-                                strcpy(file_path, token);
-                        }
+                    if (mode == 2)
+                    {
+                            file_path = malloc(strlen(token) + 1);
+                            strcpy(file_path, token);
+                    }
 
-                        if (mode == 3)
-                        {
-                                hash_code = malloc(strlen(token) + 1);
-                                strcpy(hash_code, token);
-                        }
+                    if (mode == 3)
+                    {
+                            hash_code = malloc(strlen(token) + 1);
+                            strcpy(hash_code, token);
+                    }
 
-                        ++mode;
-                        token = strtok_r(NULL, " ", &item_saveptr);
-                }
+                    ++mode;
+                    token = strtok_r(NULL, " ", &item_saveptr);
+            }
 
-                if (mode == 4)
-                {
-                        /* create new node for current manifest entry */
-                        ptr->next = (manifest_entry*)malloc(sizeof(manifest_entry));
-                        ptr = ptr->next;
-                        ptr->version = version;
-                        ptr->file_path = file_path;
-                        ptr->hash_code = hash_code;
-                        ptr->next = NULL;
-                }
+            if (mode == 4)
+            {
+                    /* create new node for current manifest entry */
+                    ptr->next = (manifest_entry*)malloc(sizeof(manifest_entry));
+                    ptr = ptr->next;
+                    ptr->version = version;
+                    ptr->file_path = file_path;
+                    ptr->hash_code = hash_code;
+                    ptr->next = NULL;
+            }
 
-                manifest_line = strtok_r(NULL, "\n", &line_saveptr);
+            manifest_line = strtok_r(NULL, "\n", &line_saveptr);
         }
 
         return root;
@@ -182,4 +182,87 @@ char * fetch_client_manifest(char * proj_name)
 
         close(fd_man);
         return manifest_buffer;
+}
+
+update_entry * fetch_updates(char * proj_name)
+{
+    /* fetch contents of update */
+    char update_path[strlen("/.Update" + strlen(proj_name) + 1)];
+    sprintf(update_path, "%s/.Update", proj_name);
+    int fd_update = open(update_path, O_RDONLY);
+    if (fd_update == -1)
+    {
+        fprintf(stderr, "[fetch_updates] Error opening file %s. FILE: %s. LINE: %d.\n", update_path, __FILE__, __LINE__);
+        return NULL;
+    }
+
+    int file_length = lseek(fd_update, 0, SEEK_END);
+    lseek(fd_update, 0, SEEK_SET);
+
+    char * update_buf = (char*) malloc(sizeof(char) * file_length);
+    if (better_read(fd_update, update_buf, file_length, __FILE__, __LINE__) != 1)
+        return NULL;
+    
+    close(fd_update);
+
+    /* create root node and ptr node references */
+    update_entry * root = NULL;
+    update_entry * ptr = NULL;
+
+    /* iterate through files and build linked list */
+    char *line_saveptr;
+    char * update_line = strtok_r(update_buf, "\n", &line_saveptr);
+    while (update_line)
+    {
+        char *token, *token_saveptr, *file_path;
+        int mode = 1;
+        token = strtok_r(update_line, " ", &token_saveptr);
+        while(token)
+        {
+                if (mode == 1)
+                {
+                    update_entry * next = (update_entry*)malloc(sizeof(update_entry));
+                    next->code = token[0];
+                    next->next = NULL;
+
+                    if(root)
+                    {
+                        ptr->next = next;
+                        ptr = ptr->next;
+                    }
+                    else
+                    {
+                        root = next;
+                        ptr = root;
+                    }
+                    
+                }
+
+                if (mode == 2)
+                {
+                        file_path = malloc(strlen(token) + 1);
+                        strcpy(file_path, token);
+                        ptr->file_path = file_path;
+                }
+
+                ++mode;
+                token = strtok_r(NULL, " ", &token_saveptr);
+        }
+
+        update_line = strtok_r(NULL, "\n", &line_saveptr);
+    }
+
+    free(update_buf);
+    return root;
+}
+
+void free_updates(update_entry * root)
+{
+    while (root)
+    {
+        free(root->file_path);
+        update_entry * next = root->next;
+        free(root);
+        root = next;
+    }
 }
