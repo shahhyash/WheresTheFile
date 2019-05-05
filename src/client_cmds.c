@@ -457,7 +457,7 @@ int _update(char * proj_name)
         update_hashes(client_manifest);
 
         /* create and open .Update file */
-        int fd_update = open(dot_update_path, O_WRONLY | O_CREAT, 00600);
+        int fd_update = open(dot_update_path, O_RDWR | O_CREAT, 00600);
         if (fd_update == -1)
         {
                 fprintf(stderr, "[_update] Error opening file %s. FILE: %s. LINE: %d\n", dot_update_path, __FILE__, __LINE__);
@@ -466,6 +466,9 @@ int _update(char * proj_name)
 
         /* count number of updates */
         int num_updates = 0;
+
+        /* Flag if conflicts were found */
+        int conflicts_found = 0;
 
         /* iterate through all items in server manifest and compare against client copy */
         manifest_entry * server_copy = server_manifest;
@@ -494,11 +497,10 @@ int _update(char * proj_name)
 
                                 if (version_cmp == 0 && hash_cmp == 0)
                                 {
-
+                                        /* file is the same, do nothing */
                                 }
                                 else if (version_cmp == 0 && hash_cmp != 0)
                                 {
-                                        printf("U  %s\n", server_copy->file_path);
                                         write_to_update(fd_update, 'U', server_copy->file_path);
                                         ++num_updates;
                                 }
@@ -506,7 +508,6 @@ int _update(char * proj_name)
                                 {
                                         if (server_manifest->version != client_manifest->version)
                                         {
-                                                printf("M  %s\n", server_copy->file_path);
                                                 write_to_update(fd_update, 'M', server_copy->file_path);
                                                 ++num_updates;
                                         }
@@ -523,7 +524,9 @@ int _update(char * proj_name)
                                 {
                                         if (server_manifest->version != client_manifest->version)
                                         {
-                                                fprintf(stderr, "CONFLICT at %s. Please fix it then run update again.\n", server_copy->file_path);
+                                                fprintf(stderr, "CONFLICT: %s\n", server_copy->file_path);
+                                                conflicts_found = 1;
+                                                ++num_updates;
                                         }
                                         else
                                         {
@@ -537,7 +540,6 @@ int _update(char * proj_name)
                         }
                         else    /* file exists on server copy, but not in clients, should probably be added */
                         {
-                                printf("A  %s\n", server_copy->file_path);
                                 write_to_update(fd_update, 'A', server_copy->file_path);
                                 ++num_updates;
                         }
@@ -569,7 +571,6 @@ int _update(char * proj_name)
                 if (!found)
                 {
                         /* client copy probably doesn't exist on server anymore, mark for deletion */
-                        printf("D  %s\n", client_copy->file_path);
                         write_to_update(fd_update, 'D', client_copy->file_path);
                         ++num_updates;
                 }
@@ -581,9 +582,35 @@ int _update(char * proj_name)
         {
                 printf("Client copy is up to date.\n");
         }
-
-        close(fd_update);
-
+        else
+        {
+                if(conflicts_found)
+                {
+                        printf("Please fix the conflicts listed above before running update again.\n");
+                        close(fd_update);                        
+                        remove(dot_update_path);
+                        free_manifest(client_manifest);
+                        free_manifest(server_manifest);
+                        return 1;
+                }
+                else
+                {
+                        lseek(fd_update, 0, SEEK_SET);
+                        int file_length = lseek(fd_update, 0, SEEK_END);
+                        lseek(fd_update, 0, SEEK_SET);
+                        char update_buf[file_length+1];
+                        if(better_read(fd_update, update_buf, file_length, __FILE__, __LINE__) <= 0)
+                        {
+                                fprintf(stderr, "[update] ERROR: Could not read from .Update file\n");
+                                return 1;
+                        }
+                        close(fd_update);
+                        update_buf[file_length]='\0';
+                        printf("%s", update_buf);
+                }
+                
+        }
+        
         free_manifest(client_manifest);
         free_manifest(server_manifest);
 
