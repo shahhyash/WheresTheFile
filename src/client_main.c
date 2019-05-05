@@ -95,6 +95,15 @@ int main(int argc, char * argv[])
                 }
                 ret =  checkout(argv[2]);
         }
+        else if (strcmp(argv[1], "currentversion") == 0)
+        {
+                if (argc != 3)
+                {
+                        fprintf(stderr, "Usage: ./WTF currentversion <project_name>\n");
+                        exit(EXIT_FAILURE);
+                }
+                ret =  current_version(argv[2]);
+        }
         else
         {
                 int sock = init_socket();

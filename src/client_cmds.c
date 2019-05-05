@@ -11,6 +11,7 @@
 #include <netdb.h>              // gethostbyname
 #include <openssl/sha.h>        // Hash function
 #include "compression.h"
+#include <string.h>
 
 /*
  *      Returns file descriptor to the socket as specified by the PORT and IP
@@ -174,51 +175,59 @@ int create_or_destroy(char * proj_name, int create)
 
         if (create)
         {
-                // Read length of size of file
-                char file_size_length_str[4] = {0,0,0,0};
-                if (better_read(sock , file_size_length_str , 3, __FILE__, __LINE__) <= 0)
+                char buf[31];
+                bzero(buf, 31);
+                if (better_read(sock, buf, 30, __FILE__, __LINE__) != 1)
                         return 1;
-                printf("file size length %s\n", file_size_length_str);
-                if (strcmp(file_size_length_str, "Err") == 0)
+                printf("Message received from server: %s\n", buf);
+                if (strcmp(buf, "Error: Project does not exist.") == 0)
                 {
-                        fprintf(stderr, "Error returned by server.\n");
+                        fprintf(stderr, "Server returned error.\n");
                         return 1;
                 }
-                int file_size_length = 1;
-                sscanf(file_size_length_str, "%d", &file_size_length);
-                // Read size of file
-                char file_size_str[file_size_length+1];
-                bzero(file_size_str, file_size_length+1);
-                if (better_read(sock , file_size_str , file_size_length, __FILE__, __LINE__) <= 0)
+                char * decompressed = receive_file(sock);
+                if (decompressed == NULL)
+                {
+                        fprintf(stderr, "[fetch_server_manifest] Error decompressing.\n");
                         return 1;
-                printf("file size %s\n", file_size_str);
-                // Read file bytes
-                int file_size;
-                sscanf(file_size_str, "%d", &file_size);
-                char file[file_size+1];
-                bzero(file, file_size+1);
-                if (better_read(sock , file , file_size, __FILE__, __LINE__) <= 0)
-                        return 1;
-                // decompress file
-                printf("file: %s\n", file);
-                // char * decompressed = _decompress(file, 3);
-                /* Create local directory for project */
+                }
+
+                printf("decompressed %s\n", decompressed);
+                char * newline = strstr(decompressed, "\n");
+                int size;
+                sscanf(&newline[2], "%d\n", &size);
+                printf("size %d\n", size);
+                char * file = (char *) malloc(sizeof(char)*(size+1));
+                bzero(file, size+1);
+                int i = 3;
+                while (newline[i++] != '\n');
+                strncpy(file, &newline[i], size);
+                printf("file %s\n", file);
+                free(decompressed);
+
                 printf("%s\n", proj_name);
                 if (make_dir(proj_name, __FILE__, __LINE__) != 0)
+                {
+                        free(file);
                         return 1;
+                }
                 // Create .manifest
                 char manifest[strlen("/.manifest") + strlen(proj_name)];
                 sprintf(manifest, "%s/.manifest", proj_name);
                 int fd_man = open(manifest, O_WRONLY | O_CREAT | O_TRUNC, 00600);
                 if (fd_man == -1)
                 {
-                        fprintf(stderr, "[create] Error creating .manifest. FILE %s. LINE: %d", __FILE__, __LINE__);
+                        fprintf(stderr, "[create] Error creating .manifest. FILE %s. LINE: %d", __FILE__, __LINE__);\
+                        free(file);
                         return 1;
                 }
                 if (better_write(fd_man, file, strlen(file), __FILE__, __LINE__) != 1)
+                {
+                        free(file);
                         return 1;
+                }
                 close(fd_man);
-                // free(decompressed);
+                free(file);
         }
         char buffer[31] = {0};
         printf("-->Sent message successfully.\n");
@@ -766,5 +775,32 @@ int _upgrade(char * proj_name)
         sprintf(update_path, "%s/.Update", proj_name);
         remove(update_path);
 
+        return 0;
+}
+/*
+ *      Requests server manifest and outputs a list of all files under the project name along with their version numbers
+ *      Returns 0 on success, 1 otherwise.
+ */
+int current_version(char * proj_name)
+{
+        int sock = init_socket();
+        if (sock == -1)
+                return 1;
+        char *  manifest = fetch_server_manifest(sock, proj_name);
+        if (manifest == NULL)
+                return 1;
+        // printf("man %s\n", manifest);
+        printf("Current project version:\n");
+        char * token = strtok(manifest, "\n");
+        printf("%s %s\n", token, proj_name);
+        token = strtok(NULL, "\n");
+        while (token != NULL) {
+                int i = 0;
+                while(token[i++] != ' ');
+                while(token[i++] != ' ');
+                token[i-1] = '\0';
+                printf("%s\n", token);
+                token = strtok(NULL, "\n");
+        }
         return 0;
 }
