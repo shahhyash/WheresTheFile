@@ -36,6 +36,11 @@ int make_dir(char * dir_name, char * file, int line);
  */
 void remove_dir(char * dir);
 /*
+ *      Compresses name buffer and sends it to client.
+ *      Returns 0 on success, 1 otherwise.
+ */
+int compress_and_send(int sd, char * name);
+/*
  *      Sends data stored in file filename through socket descriptor sd.
  *      Returns 0 on success; 1 otherwise.
  *      Protocol: (i) Sends 3 digits that is the number of digits of the file size.

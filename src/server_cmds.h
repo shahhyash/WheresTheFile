@@ -14,5 +14,10 @@ int create(int s, char * proj_name);
  *      Returns 1 on error; 0 otherwise.
  */
 int destroy(char * proj_name);
+/*
+ *      Sends manifest for project proj_name to client.
+ *      Returns 0 on success, 1 otherwise.
+ */
+int send_manifest(int sd, char * proj_name);
 
 #endif

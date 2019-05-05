@@ -83,7 +83,7 @@ int main(int argc, char * argv[])
                         exit(EXIT_FAILURE);
                 }
 
-                return _upgrade(argv[2]);
+                ret = _upgrade(argv[2]);
         }
         else if (strcmp(argv[1], "checkout") == 0)
         {
@@ -111,6 +111,5 @@ int main(int argc, char * argv[])
                 printf("Command executed successfully.\n");
         else
                 fprintf(stderr, "Error executing command.\n");
-        return !ret;
-        return 0;
+        return ret;
 }
