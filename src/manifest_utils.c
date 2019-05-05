@@ -152,11 +152,16 @@ char * fetch_server_manifest(int sd, char * proj_name)
         // printf("decompressed %s\n", decompressed);
         char * newline = strstr(decompressed, "\n");
         int size;
+        // printf("newline %s\n", newline);
         sscanf(&newline[2], "%d\n", &size);
         // printf("size %d\n", size);
         char * manifest = (char *) malloc(sizeof(char)*(size+1));
         bzero(manifest, size+1);
-        sscanf(&newline[2], "%d\n%s", &size, manifest);
+        newline = strstr(&newline[2], "\n");
+        newline = strstr(&newline[1], "\n");
+        // printf("newline %s\n", newline);
+
+        strncpy(manifest, &newline[1], size);
         // printf("file %s\n", manifest);
         free(decompressed);
         return manifest;

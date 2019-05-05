@@ -49,5 +49,10 @@ int _update(char * proj_name);
  *      Uses .Update file to perform server operations and update client copies of files
  */
 int _upgrade(char * proj_name);
+/*
+ *      Requests server manifest and outputs a list of all files under the project name along with their version numbers
+ *      Returns 0 on success, 1 otherwise.
+ */
+int current_version(char * proj_name);
 
 #endif

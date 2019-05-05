@@ -11,6 +11,7 @@
 #include <netdb.h>              // gethostbyname
 #include <openssl/sha.h>        // Hash function
 #include "compression.h"
+#include <string.h>
 
 /*
  *      Returns file descriptor to the socket as specified by the PORT and IP
@@ -206,18 +207,25 @@ int create_or_destroy(char * proj_name, int create)
 
                 printf("%s\n", proj_name);
                 if (make_dir(proj_name, __FILE__, __LINE__) != 0)
+                {
+                        free(file);
                         return 1;
+                }
                 // Create .manifest
                 char manifest[strlen("/.manifest") + strlen(proj_name)];
                 sprintf(manifest, "%s/.manifest", proj_name);
                 int fd_man = open(manifest, O_WRONLY | O_CREAT | O_TRUNC, 00600);
                 if (fd_man == -1)
                 {
-                        fprintf(stderr, "[create] Error creating .manifest. FILE %s. LINE: %d", __FILE__, __LINE__);
+                        fprintf(stderr, "[create] Error creating .manifest. FILE %s. LINE: %d", __FILE__, __LINE__);\
+                        free(file);
                         return 1;
                 }
                 if (better_write(fd_man, file, strlen(file), __FILE__, __LINE__) != 1)
+                {
+                        free(file);
                         return 1;
+                }
                 close(fd_man);
                 free(file);
         }
@@ -593,5 +601,32 @@ int _update(char * proj_name)
 
 int _upgrade(char * proj_name)
 {
+        return 0;
+}
+/*
+ *      Requests server manifest and outputs a list of all files under the project name along with their version numbers
+ *      Returns 0 on success, 1 otherwise.
+ */
+int current_version(char * proj_name)
+{
+        int sock = init_socket();
+        if (sock == -1)
+                return 1;
+        char *  manifest = fetch_server_manifest(sock, proj_name);
+        if (manifest == NULL)
+                return 1;
+        // printf("man %s\n", manifest);
+        printf("Current project version:\n");
+        char * token = strtok(manifest, "\n");
+        printf("%s %s\n", token, proj_name);
+        token = strtok(NULL, "\n");
+        while (token != NULL) {
+                int i = 0;
+                while(token[i++] != ' ');
+                while(token[i++] != ' ');
+                token[i-1] = '\0';
+                printf("%s\n", token);
+                token = strtok(NULL, "\n");
+        }
         return 0;
 }
