@@ -112,29 +112,13 @@ int create(int sd, char * proj_name)
                 return 1;
         }
         close(fd);
-        // int compressed_size;
-        char data[3] = {'1', '\n', 0};
-        // char * compressed_manifest = _compress(data, &compressed_size);
-        // char size_buf[10] = {0,0,0,0,0,0,0,0,0,0};
-        // sprintf(size_buf, "%d", compressed_size);
-        if (send_file(sd, data, "3"))
-        {
-                fprintf(stderr, "[create] send_file returned error.\n");
-                pthread_mutex_lock(&access_lock);
-                num_access--;
-                pthread_mutex_unlock(&access_lock);
-                pthread_mutex_unlock(lock);
-                is_table_lcked = FALSE;
-                pthread_mutex_unlock(&table_lck);
-                return 1;
-        }
-        // free(compressed_manifest);
         pthread_mutex_lock(&access_lock);
         num_access--;
         pthread_mutex_unlock(&access_lock);
         pthread_mutex_unlock(lock);
         is_table_lcked = FALSE;
         pthread_mutex_unlock(&table_lck);
+        return send_manifest(sd, proj_name);
         return 0;
 }
 

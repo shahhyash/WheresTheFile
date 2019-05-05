@@ -174,35 +174,36 @@ int create_or_destroy(char * proj_name, int create)
 
         if (create)
         {
-                // Read length of size of file
-                char file_size_length_str[4] = {0,0,0,0};
-                if (better_read(sock , file_size_length_str , 3, __FILE__, __LINE__) <= 0)
+                char buf[31];
+                bzero(buf, 31);
+                if (better_read(sock, buf, 30, __FILE__, __LINE__) != 1)
                         return 1;
-                printf("file size length %s\n", file_size_length_str);
-                if (strcmp(file_size_length_str, "Err") == 0)
+                printf("Message received from server: %s\n", buf);
+                if (strcmp(buf, "Error: Project does not exist.") == 0)
                 {
-                        fprintf(stderr, "Error returned by server.\n");
+                        fprintf(stderr, "Server returned error.\n");
                         return 1;
                 }
-                int file_size_length = 1;
-                sscanf(file_size_length_str, "%d", &file_size_length);
-                // Read size of file
-                char file_size_str[file_size_length+1];
-                bzero(file_size_str, file_size_length+1);
-                if (better_read(sock , file_size_str , file_size_length, __FILE__, __LINE__) <= 0)
+                char * decompressed = receive_file(sock);
+                if (decompressed == NULL)
+                {
+                        fprintf(stderr, "[fetch_server_manifest] Error decompressing.\n");
                         return 1;
-                printf("file size %s\n", file_size_str);
-                // Read file bytes
-                int file_size;
-                sscanf(file_size_str, "%d", &file_size);
-                char file[file_size+1];
-                bzero(file, file_size+1);
-                if (better_read(sock , file , file_size, __FILE__, __LINE__) <= 0)
-                        return 1;
-                // decompress file
-                printf("file: %s\n", file);
-                // char * decompressed = _decompress(file, 3);
-                /* Create local directory for project */
+                }
+
+                printf("decompressed %s\n", decompressed);
+                char * newline = strstr(decompressed, "\n");
+                int size;
+                sscanf(&newline[2], "%d\n", &size);
+                printf("size %d\n", size);
+                char * file = (char *) malloc(sizeof(char)*(size+1));
+                bzero(file, size+1);
+                int i = 3;
+                while (newline[i++] != '\n');
+                strncpy(file, &newline[i], size);
+                printf("file %s\n", file);
+                free(decompressed);
+
                 printf("%s\n", proj_name);
                 if (make_dir(proj_name, __FILE__, __LINE__) != 0)
                         return 1;
@@ -218,7 +219,7 @@ int create_or_destroy(char * proj_name, int create)
                 if (better_write(fd_man, file, strlen(file), __FILE__, __LINE__) != 1)
                         return 1;
                 close(fd_man);
-                // free(decompressed);
+                free(file);
         }
         char buffer[31] = {0};
         printf("-->Sent message successfully.\n");
