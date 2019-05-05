@@ -570,9 +570,18 @@ int _update(char * proj_name)
 
                 if (!found)
                 {
-                        /* client copy probably doesn't exist on server anymore, mark for deletion */
-                        write_to_update(fd_update, 'D', client_copy->file_path);
-                        ++num_updates;
+                        if (server_manifest->version == client_manifest->version)
+                        {
+                                /* file needs to be uploaded */
+                                write_to_update(fd_update, 'U', server_copy->file_path);
+                                ++num_updates;
+                        }
+                        else
+                        {
+                                /* client copy probably doesn't exist on server anymore, mark for deletion */
+                                write_to_update(fd_update, 'D', client_copy->file_path);
+                                ++num_updates;
+                        }
                 }
 
                 client_copy = client_copy->next;
@@ -615,6 +624,31 @@ int _update(char * proj_name)
         free_manifest(server_manifest);
 
         return 0;
+}
+
+/* fetch file from server given it's file path: proj_name/sub_dir/file_name */
+char * fetch_server_copy(int sd, char * file_name)
+{
+        if (send_cmd_proj(sd, file_name, "fet"))
+                return NULL;
+
+        char buf[31];
+        bzero(buf, 31);
+        if (better_read(sd, buf, 30, __FILE__, __LINE__) != 1)
+                return NULL;
+        printf("Message received from server: %s\n", buf);
+        if (strcmp(buf, "Error: Project does not exist.") == 0)
+        {
+                fprintf(stderr, "Server returned error.\n");
+                return NULL;
+        }
+        char * decompressed = receive_file(sd);
+        if (decompressed == NULL)
+        {
+                fprintf(stderr, "[fetch_server_manifest] Error decompressing.\n");
+                return NULL;
+        }
+        return decompressed;
 }
 
 int _upgrade(char * proj_name)
@@ -661,11 +695,53 @@ int _upgrade(char * proj_name)
         {
                 if (update_ptr->code == 'M')
                 {
-
-                }
+                        char * file_contents = fetch_server_copy(sd, update_ptr->file_path);
+                        int fd = open(update_ptr->file_path, O_WRONLY | O_TRUNC, 00600);
+                        if (fd == -1)
+                        {
+                                fprintf(stderr, "[upgrade] Error opening file %s for modification. Exiting process...\n", update_ptr->file_path);
+                                /* free allocated resources */
+                                free_manifest(server_manifest);
+                                free_updates(updates);
+                                return 1;
+                        }
+                        
+                        if (better_write(fd, file_contents, strlen(file_contents), __FILE__, __LINE__) <= 0)
+                        {
+                                fprintf(stderr, "[upgrade] Unable to write to file %s during modification. Exiting process...\n", update_ptr->file_path);
+                                /* free allocated resources */
+                                free_manifest(server_manifest);
+                                free_updates(updates);
+                                return 1;
+                        }
+                        
+                        close(fd);
+                        free(file_contents);
+                }       
                 else if (update_ptr->code == 'A')
                 {
+                        char * file_contents = fetch_server_copy(sd, update_ptr->file_path);
+                        int fd = open(update_ptr->file_path, O_WRONLY | O_CREAT, 00600);
+                        if (fd == -1)
+                        {
+                                fprintf(stderr, "[upgrade] Error opening file %s . Exiting process...\n", update_ptr->file_path);
+                                /* free allocated resources */
+                                free_manifest(server_manifest);
+                                free_updates(updates);
+                                return 1;
+                        }
 
+                        if (better_write(fd, file_contents, strlen(file_contents), __FILE__, __LINE__) <= 0)
+                        {
+                                fprintf(stderr, "[upgrade] Unable to write to file %s during modification. Exiting process...\n", update_ptr->file_path);
+                                /* free allocated resources */
+                                free_manifest(server_manifest);
+                                free_updates(updates);
+                                return 1;
+                        }
+                        
+                        close(fd);
+                        free(file_contents);
                 }
                 else if (update_ptr->code == 'D')
                 {

@@ -211,12 +211,61 @@ int send_manifest(int sd, char * proj_name)
         pthread_mutex_lock(&access_lock);
         num_access++;
         pthread_mutex_unlock(&access_lock);
-        char man_name[strlen(proj_name)+1+strlen(".server_repo/")+strlen("/.manifest")];
-        bzero(man_name, strlen(proj_name)+1+strlen(".server_repo/")+strlen("/.manifest"));
+        char file_name[strlen(proj_name)+1+strlen(".server_repo/")+strlen("/.manifest")];
+        bzero(file_name, strlen(proj_name)+1+strlen(".server_repo/")+strlen("/.manifest"));
         // Read and compress manifest
-        sprintf(man_name, ".server_repo/%s/.manifest", proj_name);
+        sprintf(file_name, ".server_repo/%s/.manifest", proj_name);
 
-        int ret = compress_and_send(sd, man_name);
+        int ret = compress_and_send(sd, file_name);
+
+        pthread_mutex_lock(&access_lock);
+        num_access--;
+        pthread_mutex_unlock(&access_lock);
+        pthread_mutex_unlock(lock);
+
+        return ret;
+}
+
+/*
+ *      Sends specified file for project proj_name to client.
+ *      Returns 0 on success, 1 otherwise.
+ */
+int send_server_copy(int sd, char * file_path)
+{
+        /* Return if .server_repo folder does not already exist */
+        if (dir_exists(".server_repo") == 0)
+                return 1;
+
+        /* fetch project name from file path */
+        char * sub_path = index(file_path, '/');
+        int proj_name_length = sub_path - file_path;
+        char proj_name[proj_name_length + 1];
+        strncpy(proj_name, file_path, proj_name_length);
+        proj_name[proj_name_length] = '\0';
+
+        pthread_mutex_t * lock = get_project_lock(proj_name);
+        if (lock == NULL)
+                return 1;
+        else
+        {
+                if (better_send(sd, "Found repository. Sending now.", 30, 0, __FILE__, __LINE__) != 1)
+                        return 1;
+        }
+        while (is_table_lcked)
+                printf("table locked.\n");
+        pthread_mutex_lock(lock);
+        
+        /* Mark another thread as accessing */
+        pthread_mutex_lock(&access_lock);
+        num_access++;
+        pthread_mutex_unlock(&access_lock);
+        char file_name[strlen(".server_repo/") + strlen(file_path) + 1];
+        bzero(file_name, strlen(".server_repo/") + strlen(file_path) + 1);
+        
+        /* Read and compress manifest */
+        sprintf(file_name, ".server_repo/%s", file_path);
+
+        int ret = compress_and_send(sd, file_name);
 
         pthread_mutex_lock(&access_lock);
         num_access--;

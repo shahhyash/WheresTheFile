@@ -19,5 +19,11 @@ int destroy(char * proj_name);
  *      Returns 0 on success, 1 otherwise.
  */
 int send_manifest(int sd, char * proj_name);
+/*
+ *      Sends specified file for project proj_name to client.
+ *      Returns 0 on success, 1 otherwise.
+ */
+int send_server_copy(int sd, char * file_name);
+
 
 #endif

@@ -7,6 +7,7 @@
 #include <unistd.h>             // FILE IO
 #include "flags.h"
 #include "compression.h"
+#include "manifest_utils.h"
 
 void usage()
 {
@@ -97,7 +98,7 @@ int main(int argc, char * argv[])
         else
         {
                 int sock = init_socket();
-
+                
                 char *msg = "cre004test";
 
                 char buffer[1024] = {0};
