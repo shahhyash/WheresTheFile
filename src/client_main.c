@@ -16,6 +16,7 @@ void usage()
 
 int main(int argc, char * argv[])
 {
+        int ret;
         if (argc < 3)
         {
                 usage();
@@ -27,7 +28,7 @@ int main(int argc, char * argv[])
                         fprintf(stderr, "Usage: ./WTF configure <IP ADDRESS> <PORT NUMBER>\n");
                         exit(EXIT_FAILURE);
                 }
-                return set_configure(argv[2], argv[3]);
+                ret = set_configure(argv[2], argv[3]);
         }
         else if (strcmp(argv[1], "create") == 0)
         {
@@ -36,7 +37,7 @@ int main(int argc, char * argv[])
                         fprintf(stderr, "Usage: ./WTF create <project_name>\n");
                         exit(EXIT_FAILURE);
                 }
-                return create_or_destroy(argv[2], TRUE);
+                ret = create_or_destroy(argv[2], TRUE);
         }
         else if (strcmp(argv[1], "destroy") == 0)
         {
@@ -45,7 +46,7 @@ int main(int argc, char * argv[])
                         fprintf(stderr, "Usage: ./WTF destroy <project_name>\n");
                         exit(EXIT_FAILURE);
                 }
-                return create_or_destroy(argv[2], FALSE);
+                ret = create_or_destroy(argv[2], FALSE);
         }
         else if (strcmp(argv[1], "add") == 0)
         {
@@ -54,7 +55,7 @@ int main(int argc, char * argv[])
                         fprintf(stderr, "Usage: ./WTF add <project_name> <filename>\n");
                         exit(EXIT_FAILURE);
                 }
-                return _add(argv[2], argv[3]);
+                ret = _add(argv[2], argv[3]);
         }
         else if (strcmp(argv[1], "remove") == 0)
         {
@@ -63,7 +64,7 @@ int main(int argc, char * argv[])
                         fprintf(stderr, "Usage: ./WTF remove <project_name> <filename>\n");
                         exit(EXIT_FAILURE);
                 }
-                return _remove(argv[2], argv[3]);
+                ret =  _remove(argv[2], argv[3]);
         }
         else if (strcmp(argv[1], "update") == 0)
         {
@@ -72,7 +73,7 @@ int main(int argc, char * argv[])
                         fprintf(stderr, "Usage: ./WTF update <project_name>\n");
                         exit(EXIT_FAILURE);
                 }
-                return _update(argv[2]);
+                ret =  _update(argv[2]);
         }
         else if (strcmp(argv[1], "upgrade") == 0)
         {
@@ -91,7 +92,7 @@ int main(int argc, char * argv[])
                         fprintf(stderr, "Usage: ./WTF checkout <project_name>\n");
                         exit(EXIT_FAILURE);
                 }
-                return checkout(argv[2]);
+                ret =  checkout(argv[2]);
         }
         else
         {
@@ -106,5 +107,10 @@ int main(int argc, char * argv[])
                 read( sock , buffer, 1024);
                 printf("Message from server:\t%s\n",buffer );
         }
+        if (ret == 0)
+                printf("Command executed successfully.\n");
+        else
+                fprintf(stderr, "Error executing command.\n");
+        return !ret;
         return 0;
 }
