@@ -8,6 +8,7 @@
 #include <unistd.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <openssl/sha.h>        // Hash function
 
 manifest_entry * read_manifest_file(char * file_contents)
 {        
@@ -84,6 +85,45 @@ void free_manifest(manifest_entry * root)
         free(root->hash_code);
         free(root);
         root = next;
+    }
+}
+
+void update_hashes(manifest_entry * root)
+{
+    while (root)
+    {
+        if (root->file_path)
+        {
+            /* fetch old hash code */
+            char * old_hash = root->hash_code;
+
+            /* read file contents */
+            int fd = open(root->file_path, O_RDONLY, 00600);
+            int file_length = lseek(fd, 0, SEEK_END);
+            lseek(fd, 0, SEEK_SET);
+            char file_contents[file_length+1];
+            bzero(file_contents, file_length+1);
+            better_read(fd, file_contents, file_length, __FILE__, __LINE__);
+            close(fd);
+
+            /* compute new hash code */
+            char * new_hash = malloc(sizeof(char) * (SHA256_DIGEST_LENGTH));
+            SHA256((const unsigned char * ) file_contents, file_length, (unsigned char *) new_hash);
+
+            if (strcmp(old_hash, new_hash) == 0)
+            {
+                /* hashes are the same, don't do anything */
+                free(new_hash);
+            }
+            else
+            {
+                /* hashes are different, update .manifest */
+                free(old_hash);
+                root->hash_code = new_hash;
+            }
+        }
+
+        root = root->next;
     }
 }
 

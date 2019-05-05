@@ -29,7 +29,7 @@ void print_manifest(manifest_entry * root);
 /* frees all allocated memory for manifest tree */
 void free_manifest(manifest_entry * root);
 
-/* generate and update hashes for all files in manifest */
+/* generate and update hashes for all files in manifest - different from commit bc it does not modify .manifest */
 void update_hashes(manifest_entry * root);
 
 #endif

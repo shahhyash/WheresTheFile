@@ -426,6 +426,9 @@ int _update(char * proj_name)
         manifest_entry * client_manifest = read_manifest_file(manifest_contents);
         free(manifest_contents);
 
+        /* recompute hashes for all files in client manifest */
+        update_hashes(client_manifest);
+
         /* create and open .Update file */
         int fd_update = open(dot_update_path, O_WRONLY | O_CREAT, 00600);
 
@@ -557,5 +560,5 @@ int _update(char * proj_name)
 
 int _upgrade(char * proj_name)
 {
-
+        return 0;
 }
