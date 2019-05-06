@@ -275,7 +275,7 @@ int receive_commit(int sd, char * proj_name)
         while (is_table_lcked)
                 printf("table locked.\n");
         pthread_mutex_lock(lock);
-        
+
         /* Mark another thread as accessing */
         pthread_mutex_lock(&access_lock);
         num_access++;
@@ -286,6 +286,12 @@ int receive_commit(int sd, char * proj_name)
         if (commit_contents == NULL)
         {
                 fprintf(stderr, "[fetch_server_manifest] Error decompressing.\n");
+                /* free allocated memory for received file */
+                free(commit_contents);
+                pthread_mutex_lock(&access_lock);
+                num_access--;
+                pthread_mutex_unlock(&access_lock);
+                pthread_mutex_unlock(lock);
                 return 1;
         }
 
@@ -303,7 +309,7 @@ int receive_commit(int sd, char * proj_name)
 
         /* increment commit count for this project */
         int commit_id = increment_commit_count(proj_name);
-        
+
         int digits = 1;
         if (commit_id > 9)
                 ++digits;
@@ -322,12 +328,30 @@ int receive_commit(int sd, char * proj_name)
         if (fd_commit == -1)
         {
                 fprintf(stderr, "[receive_commit] ERROR: Unable to open file %s to store commit.\n", commit_path);
+                close(fd_commit);
+
+                /* free allocated memory for received file */
+                free(commit_contents);
+                free(file);
+                pthread_mutex_lock(&access_lock);
+                num_access--;
+                pthread_mutex_unlock(&access_lock);
+                pthread_mutex_unlock(lock);
                 return 1;
         }
 
         if (better_write(fd_commit, file, size, __FILE__, __LINE__) <= 0)
         {
                 fprintf(stderr, "[receive_commit] ERROR: Unable to write to commit file.\n");
+                close(fd_commit);
+
+                /* free allocated memory for received file */
+                free(commit_contents);
+                free(file);
+                pthread_mutex_lock(&access_lock);
+                num_access--;
+                pthread_mutex_unlock(&access_lock);
+                pthread_mutex_unlock(lock);
                 return 1;
         }
 
