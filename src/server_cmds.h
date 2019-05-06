@@ -24,10 +24,19 @@ int send_manifest(int sd, char * proj_name);
  *      Returns 0 on success, 1 otherwise.
  */
 int send_server_copy(int sd, char * file_name);
-
 /*
  *      Listen for request to add .commit file for project
  */
 int receive_commit(int sd, char * proj_name);
+/*
+ *      Sends history file to client.
+ *      Return 0 on success, 1 otherwise.
+ */
+int history(int sd, char * proj_name);
+/*
+ *      Rollsback server project version.
+ *      Return 0 on success, 1 otherwise.
+ */
+int rollback(int sd, char * proj_name);
 
 #endif

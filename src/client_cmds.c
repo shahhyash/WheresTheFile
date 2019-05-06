@@ -13,7 +13,7 @@
 #include "compression.h"
 #include <string.h>
 #include "commit_utils.h"
-
+#include <ctype.h>
 /*
  *      Returns file descriptor to the socket as specified by the PORT and IP
  *      in .configure. Returns -1 on error.
@@ -887,7 +887,9 @@ int current_version(char * proj_name)
         }
         return 0;
 }
-
+/*
+ *      Creates a .commit file to keep track of all changes on client's copy of project
+ */
 int _commit(char * proj_name)
 {
         /* check if local version of project exists */
@@ -1070,7 +1072,71 @@ int _commit(char * proj_name)
         free_manifest(updated_client_manifest);
         return ret;
 }
+/*
+ *      The server will revert its current version of the project back to the version number
+ *      requested by the client by deleting all more recent versions saved on the server side.
+ *      Return 0 on success, 1 otherwise.
+ */
+int _rollback(char * proj_name, char * version)
+{
+        int i = 0;
+        for (i = 0; i < strlen(version), i++)
+        {
+                if (!isdigit(version[i]))
+                {
+                        fprintf(stderr, "[history] Enter a valid version number.\n");
+                        return 1;
+                }
+        }
+        int ver = atoi(version);
+        if (ver <= 0)
+        {
+                fprintf(stderr, "[history] Invalid version entered.\n");
+                return 1;
+        }
+        int sd = init_socket();
+        if (send_cmd_proj(sd, proj_name, "rol"))
+                return 1;
+        return 0;
+}
+/*
+ *      The server will send over a file containing the history of all operations
+ *      performed on all successful pushes since the project's creation. The output
+ *      should be similar to the update output, but with a version number and newline
+ *      separating each push's log of changes
+ *      Return 0 on success, 1 otherwise.
+ */
+int _history(char * proj_name)
+{
 
+        int sd = init_socket();
+        if (send_cmd_proj(sd, proj_name, "his"))
+                return 1;
+        char buf[31];
+        bzero(buf, 31);
+        if (better_read(sd, buf, 30, __FILE__, __LINE__) != 1){
+                return NULL;}
+        printf("Message received from server: %s\n", buf);
+        if (strcmp(buf, "Error: Project does not exist.") == 0)
+        {
+                fprintf(stderr, "Server returned error.\n");
+                return NULL;
+        }
+        char * decompressed = receive_file(sd);
+        if (decompressed == NULL)
+        {
+                fprintf(stderr, "[fetch_server_manifest] Error decompressing.\n");
+                return NULL;
+        }
+        char * history = strstr(decompressed, "\n");
+        history = strstr(&history[1], "\n");
+        history = strstr(&history[1], "\n");
+        printf("%s\n", &history[1]);
+        return 0;
+}
+/*
+ *      Performs all required operations to fulfill the most recent commit.
+ */
 int _push(char * proj_name)
 {
         /* check if local version of project exists */
@@ -1116,7 +1182,7 @@ int _push(char * proj_name)
         }
 
         commit_entry * commits = read_commit_file(commit_contents);
-        
+
         /* TODO: From here on, we need to compile a list of files that need to be sent to the server and send them out */
 
         return 0;
