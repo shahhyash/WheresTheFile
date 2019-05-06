@@ -16,7 +16,18 @@ We tested the following cases:
 -Client requests a valid project. Result: Server sends compressed file containing project. Client fully decompresses file and creates the directory and all files within it according to manifest received in the single transferred file.
 
 Update
-
+We tested the following cases:
+-Client tries to update a project that does not exist on the server. Result: Error message returned by server to client. Client exits with error and informs user.
+More generally, for update, we checked that for each type of UMAD:
+-U (for upload) and the full path/file name- for a file that is in the client's .Manifest that is not in the server's, and the client's and server's .Manifest are the same version, or a file that both the server and client have, but the server's hash of the contents and the client's live hash are different, and the client and server's .Manifest version is the same
+-M (for modify) and the full path/file name- for a file that both the server and client have, but the server's .Manifest version and file version are different than the client's, and the client's live hash of the file is the same as in its .Manifest.
+-A (for added) and the full path/file name- for a file that is in the server's .Manifest, but not the client's and the server's .Manifest is a different version than the client's
+-D (for deleted) and the full path/file name- for a file that is not in the server's .Manifest, but is in the client's and the server's .Manifest is a different version than the client'
+and checked that the .Update file contained the corresponding letter, version, filepath, and hash.
+We checked to make sure the following cases return error:
+-.Manifest is the same for server and client, and file version is different (which should be impossible).
+-.Manifest is different for server and client, file versions are different, and the hash is different.
+The errors are printed to STDOUT.
 
 Upgrade
 We tested the following cases:
@@ -26,10 +37,23 @@ We tested the following cases:
 -Client calls upgrade for a project with a valid .Update file. Result: The client applies the changes listed in the .Update to the client's local copy of the project. It deletes the entry from the client's .Manifest for all files tagged with a “D” and fetches from the server and writes or overwrites all files on the client side that are tagged with a “M” or “A”, respectively. When it is done processing all updates listed in it, the client deletes the .Update file.
 
 Commit
-
+We tested the following cases:
+-Client tries to commit a project that does not exist on the server. Result: Error message returned by server to client. Client exits with error and informs user.
+These are the only cases that we let pass without error:
+0. files that are in the server's .Manifest that are not in the client's(indicating they should be removed from the repository)
+1. files that are in the client's .Manifest that are not in the server's(indicating they should be added to the repository)
+2. files that are in both .Manifests, but also have an entry in the client's newly-written .Commit with a higher version number(indicating the client has a newer version than the server
+In these cases, the server creates a .commit file with the changes. We tested to make sure that additional .Commit were created if a .Commit for a project already existed. We tested having a blank .Update file and got the server to still create the .Commit as expected. When the .Update was not blank, the client printed error to the user.
+We tested the following error case:
+-Files in the server's .Manifest that have a different hashcode than the client's whose version number are not lower than the client's. Result: commit fails with a message that the client must sync with the repository before committing changes.
 
 Push
 
+We tested the following cases:
+-Client tries to commit a project that does not exist on the server. Result: Error message returned by server to client. Client exits with error and informs user.
+-.Commit does not exist on server/client. Result: Server/client returns error and the client reports error to the user.
+-Client sends differing .Commit file to the server. Result: Server returns error and client exits with error and informs user.
+-Valid input. Result: Server deletes all other .commit files for the project. Server compresses backup of current version. Server writes all files from compressed file client sent to project folder, overwriting any existing files. Server updates manifest and increments version.
 
 Create
 We tested the following cases:
