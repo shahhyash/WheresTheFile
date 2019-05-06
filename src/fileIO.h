@@ -39,7 +39,7 @@ void remove_dir(char * dir);
  *      Compresses name buffer and sends it to client.
  *      Returns 0 on success, 1 otherwise.
  */
-int compress_and_send(int sd, char * name);
+int compress_and_send(int sd, char * name, int is_server);
 /*
  *      Sends data stored in file filename through socket descriptor sd.
  *      Returns 0 on success; 1 otherwise.
