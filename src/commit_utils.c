@@ -21,15 +21,16 @@ char * fetch_commit_file(char * proj_name, int is_server, int commit_id)
 
         /* if it's fetching server copy, it's a different path */
         int path_len = strlen(".server_repo/") + strlen(proj_name) + strlen("/.commit") + digits + 1;
-        char __path[path_len];
-        commit_path = __path[0];
+        commit_path = (char *) malloc(sizeof(char)*path_len);
+        bzero(commit_path, path_len);
         sprintf(commit_path, ".server_repo/%s/.commit%d", proj_name, commit_id);
     }
     else
     {
         /* build commit path for client side */
-        char __path[strlen(proj_name) + strlen("/.commit") + 1];
-        commit_path = __path[0];
+        int path_len =strlen(proj_name) + strlen("/.commit") + 1;
+        commit_path =(char *) malloc(sizeof(char)*path_len);
+        bzero(commit_path, path_len);
         sprintf(commit_path, "%s/.commit", proj_name);
     }
 
@@ -52,6 +53,7 @@ char * fetch_commit_file(char * proj_name, int is_server, int commit_id)
 
     /* close the file */
     close(fd);
+    free(commit_path);
 
     return file;
 }
