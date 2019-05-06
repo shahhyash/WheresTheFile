@@ -38,5 +38,9 @@ int history(int sd, char * proj_name);
  *      Return 0 on success, 1 otherwise.
  */
 int rollback(int sd, char * proj_name);
+/*
+ *      Handle push command for a project
+ */
+int push_handler(int sd, char * proj_name);
 
 #endif
