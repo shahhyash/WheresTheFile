@@ -689,6 +689,16 @@ int _upgrade(char * proj_name)
                 fprintf(stderr, "[_upgrade] ERROR: An existing .Update file does not exist. Please run update before running upgrade.\n");
                 return 1;
         }
+        int up_fd = open(dot_update_path, O_RDONLY, 00600);
+        int up_size = lseek(up_fd, 0, SEEK_END);
+        close(up_fd);
+        if (up_size == 0)
+        {
+                printf("[Upgrade] Project %s is up to date!\n", proj_name);
+                remove(dot_update_path);
+                return 0;
+        }
+
 
         /* begin by initializing a connection to the server */
         int sd = init_socket();
