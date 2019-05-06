@@ -502,7 +502,6 @@ int _update(char * proj_name)
                         if (client_copy != NULL)
                         {
                                 int version_cmp = server_copy->version - client_copy->version;
-                                printf("%s vs %s\n", "server_copy->hash_code", client_copy->hash_code);
                                 int hash_cmp = strcmp(server_copy->hash_code, client_copy->hash_code);
 
                                 if (version_cmp == 0 && hash_cmp == 0)

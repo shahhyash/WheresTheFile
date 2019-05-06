@@ -59,6 +59,7 @@ manifest_entry * read_manifest_file(char * file_contents)
                     ptr->version = version;
                     ptr->file_path = file_path;
                     ptr->hash_code = hash_code;
+                    printf("new hash: %s\n", hash_code);
                     ptr->next = NULL;
             }
 
@@ -108,9 +109,29 @@ void update_hashes(manifest_entry * root)
             close(fd);
 
             /* compute new hash code */
-            char * new_hash = malloc(sizeof(char) * (SHA256_DIGEST_LENGTH));
-            SHA256((const unsigned char * ) file_contents, file_length, (unsigned char *) new_hash);
-
+            unsigned char hash[SHA256_DIGEST_LENGTH];
+            bzero(hash, SHA256_DIGEST_LENGTH);
+            SHA256((const unsigned char * ) file_contents, file_length, (unsigned char *) hash);
+            char hex_hash[SHA256_DIGEST_LENGTH*2+1];
+            bzero(hex_hash, SHA256_DIGEST_LENGTH*2+1);
+            int j;
+            for (j = 0; j < SHA256_DIGEST_LENGTH; j++)
+            {
+                    char hex[3] = {0,0,0};
+                    sprintf(hex, "%x", (int)hash[j]);
+                    if (strlen(hex) == 1)
+                    {
+                            hex_hash[2*j] = '0';
+                            hex_hash[2*j+1] = hex[0];
+                    }
+                    else
+                    {
+                            hex_hash[2*j] = hex[0];
+                            hex_hash[2*j+1] = hex[1];
+                    }
+            }
+            char * new_hash = malloc(sizeof(char) * (strlen(hex_hash)+1));
+            strcpy(new_hash, hex_hash);
             if (strcmp(old_hash, new_hash) == 0)
             {
                 /* hashes are the same, don't do anything */
@@ -207,7 +228,7 @@ update_entry * fetch_updates(char * proj_name)
     char * update_buf = (char*) malloc(sizeof(char) * file_length);
     if (better_read(fd_update, update_buf, file_length, __FILE__, __LINE__) != 1)
         return NULL;
-    
+
     close(fd_update);
 
     /* create root node and ptr node references */
@@ -240,7 +261,7 @@ update_entry * fetch_updates(char * proj_name)
                         root = next;
                         ptr = root;
                     }
-                    
+
                 }
 
                 if (mode == 2)
