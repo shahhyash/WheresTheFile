@@ -252,6 +252,18 @@ int _add(char * proj_name, char * filename)
                 fprintf(stderr, "[_add] Error %s does not exist. FILE: %s. LINE: %d.\n", pj, __FILE__, __LINE__);
                 return 1;
         }
+        int is_dif_ver;
+        int version = get_version(proj_name, filename, &is_dif_ver);     // Increment version
+        if (version == -1)
+        {
+                fprintf(stderr, "Error reading version. FILE: %s. LINE: %d.\n", __FILE__, __LINE__);
+                return 1;
+        }
+        else if (version == 0 || is_dif_ver)
+                version++;
+        char ver_str[128];
+        bzero(ver_str, 128);
+        sprintf(ver_str, "%d", version);
         // Remove if already in manifest
         if(!_remove(proj_name, filename))
                 printf("[_add] File already in .manifest... replacing...\n");
@@ -265,15 +277,13 @@ int _add(char * proj_name, char * filename)
         // Get file length
         int file_length = lseek(fd_new_file, 0, SEEK_END);
         lseek(fd_new_file, 0, SEEK_SET);
-        // Hash contents of file
         char data[file_length+1];
         bzero(data, file_length+1);
         if (better_read(fd_new_file, data, file_length, __FILE__, __LINE__) != 1)
                 return 1;
-        unsigned char hash[SHA256_DIGEST_LENGTH];
-        SHA256((const unsigned char *) data, file_length, hash);
         close(fd_new_file);
-
+        // Hash contents of file
+        char * hex_hash = hash(data);
         // Open manifest
         char manifest[strlen("/.manifest") + strlen(proj_name)];
         sprintf(manifest, "%s/.manifest", proj_name);
@@ -283,28 +293,11 @@ int _add(char * proj_name, char * filename)
                 fprintf(stderr, "[_add] Error opening %s. FILE: %s. LINE: %d.\n", manifest, __FILE__, __LINE__);
                 return 1;
         }
-        char hex_hash[SHA256_DIGEST_LENGTH*2+1];
-        bzero(hex_hash, SHA256_DIGEST_LENGTH*2+1);
-        int j;
-        for (j = 0; j < SHA256_DIGEST_LENGTH; j++)
-        {
-                char hex[3] = {0,0,0};
-                sprintf(hex, "%x", (int)hash[j]);
-                if (strlen(hex) == 1)
-                {
-                        hex_hash[2*j] = '0';
-                        hex_hash[2*j+1] = hex[0];
-                }
-                else
-                {
-                        hex_hash[2*j] = hex[0];
-                        hex_hash[2*j+1] = hex[1];
-                }
-        }
         int line_length = strlen(ver_str) + 1 + strlen(pj) + 1 + strlen(hex_hash) + 2;
         char new_line[line_length];
         bzero(new_line, line_length);
         sprintf(new_line, "%s %s %s\n", ver_str, pj, hex_hash);
+        free(hex_hash);
         lseek(fd_man, 0, SEEK_END);
         if (better_write(fd_man, new_line, line_length-1, __FILE__, __LINE__) != 1)
                 return 1;
@@ -346,12 +339,16 @@ int _remove(char * proj_name, char * filename)
         buf[size]='\0'; /* add string termination so that substring search doesn't look further than end of file */
         // printf("pj: %s\nbuf: %s\n", name, buf);
         char * line = strstr(buf, name);
+        // printf("%s\n", line);
         if (line == NULL)
         {
                 fprintf(stderr, "[_remove] (Ignore if adding...) %s not in manifest. FILE: %s. LINE: %d.\n", filename, __FILE__, __LINE__);
                 return 1;
         }
-        int num_bytes = line - &buf[0];
+        int k = 0;
+        while (line[k--] != '\n');
+        k+=2;
+        int num_bytes = &line[k] - &buf[0];
         int i = num_bytes;
         int end;
         while (buf[i] != '\n')
@@ -365,7 +362,7 @@ int _remove(char * proj_name, char * filename)
                 fprintf(stderr, "[_remove] Error opening %s. FILE: %s. LINE: %d.\n", pj, __FILE__, __LINE__);
                 return 1;
         }
-        if (better_write(fd1, buf, num_bytes-2, __FILE__, __LINE__) != 1)
+        if (better_write(fd1, buf, num_bytes, __FILE__, __LINE__) != 1)
                 return 1;
         if (better_write(fd1, &buf[end], size-end, __FILE__, __LINE__) != 1)
                 return 1;
@@ -946,7 +943,7 @@ int _commit(char * proj_name)
         {
                 char * file_path = updated_client_ptr->file_path;
                 int exists_in_server = 0;
-                        
+
                 /* check if server copy exists */
                 server_ptr = server_manifest->next;
                 while (server_ptr)
