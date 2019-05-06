@@ -41,7 +41,7 @@ int checkout(int sd, char * proj_name)
         bzero(new_proj_name, strlen(proj_name)+1+strlen(".server_repo/"));
         sprintf(new_proj_name, ".server_repo/%s", proj_name);
 
-        int ret = compress_and_send(sd, new_proj_name);
+        int ret = compress_and_send(sd, new_proj_name, TRUE);
 
         pthread_mutex_lock(&access_lock);
         num_access--;
@@ -200,7 +200,7 @@ int send_manifest(int sd, char * proj_name)
         // Read and compress manifest
         sprintf(file_name, ".server_repo/%s/.manifest", proj_name);
 
-        int ret = compress_and_send(sd, file_name);
+        int ret = compress_and_send(sd, file_name, TRUE);
 
         pthread_mutex_lock(&access_lock);
         num_access--;
@@ -250,7 +250,7 @@ int send_server_copy(int sd, char * file_path)
         /* Read and compress manifest */
         sprintf(file_name, ".server_repo/%s", file_path);
 
-        int ret = compress_and_send(sd, file_name);
+        int ret = compress_and_send(sd, file_name, TRUE);
 
         pthread_mutex_lock(&access_lock);
         num_access--;
@@ -258,4 +258,90 @@ int send_server_copy(int sd, char * file_path)
         pthread_mutex_unlock(lock);
 
         return ret;
+}
+
+int receive_commit(int sd, char * proj_name)
+{
+        if (dir_exists(".server_repo") == 0)
+                return 1;
+        pthread_mutex_t * lock = get_project_lock(proj_name);
+        if (lock == NULL)
+                return 1;
+        else
+        {
+                if (better_send(sd, "Found repository. Sending now.", 30, 0, __FILE__, __LINE__) != 1)
+                        return 1;
+        }
+        while (is_table_lcked)
+                printf("table locked.\n");
+        pthread_mutex_lock(lock);
+        
+        /* Mark another thread as accessing */
+        pthread_mutex_lock(&access_lock);
+        num_access++;
+        pthread_mutex_unlock(&access_lock);
+
+        /* Fetch commit file from input socket stream */
+        char * commit_contents = receive_file(sd);
+        if (commit_contents == NULL)
+        {
+                fprintf(stderr, "[fetch_server_manifest] Error decompressing.\n");
+                return 1;
+        }
+
+        /* parse the message information out of the file */
+        char * newline = strstr(commit_contents, "\n");
+
+        int size;
+        sscanf(&newline[2], "%d\n", &size);
+
+        char * file = (char *) malloc(sizeof(char)*(size+1));
+        bzero(file, size+1);
+        newline = strstr(&newline[2], "\n");
+        newline = strstr(&newline[1], "\n");
+        strncpy(file, &newline[1], size);
+
+        /* increment commit count for this project */
+        int commit_id = increment_commit_count(proj_name);
+        
+        int digits = 1;
+        if (commit_id > 9)
+                ++digits;
+        if (commit_id > 99)
+                ++digits;
+        if (commit_id > 999)
+                ++digits;
+
+        /* generate file path based on the id fetched from incrementing commit count */
+        int commit_path_size = strlen(".server_repo/") + strlen(proj_name) + 1 + strlen(".commit") + digits + 1;
+        char commit_path[commit_path_size];
+        sprintf(commit_path, ".server_repo/%s/.commit%d", proj_name, commit_id);
+
+        /* open commit file and store contents into it */
+        int fd_commit = open(commit_path, O_RDWR | O_CREAT, 00600);
+        if (fd_commit == -1)
+        {
+                fprintf(stderr, "[receive_commit] ERROR: Unable to open file %s to store commit.\n", commit_path);
+                return 1;
+        }
+
+        if (better_write(fd_commit, file, size, __FILE__, __LINE__) <= 0)
+        {
+                fprintf(stderr, "[receive_commit] ERROR: Unable to write to commit file.\n");
+                return 1;
+        }
+
+        close(fd_commit);
+
+        /* free allocated memory for received file */
+        free(commit_contents);
+        free(file);
+
+        /* Unmark as another thread as accessing */
+        pthread_mutex_lock(&access_lock);
+        num_access--;
+        pthread_mutex_unlock(&access_lock);
+        pthread_mutex_unlock(lock);
+
+        return 0;
 }

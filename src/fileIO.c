@@ -183,9 +183,9 @@ void remove_dir(char * dir)
  *      Compresses name buffer and sends it to client.
  *      Returns 0 on success, 1 otherwise.
  */
-int compress_and_send(int sd, char * name)
+int compress_and_send(int sd, char * name, int is_server)
 {
-        char * zipped = recursive_zip(name, TRUE);
+        char * zipped = recursive_zip(name, is_server);
         printf("zipped: %s\n", zipped);
         int zipped_size = strlen(zipped);
         int num_digits = 0;

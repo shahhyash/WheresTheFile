@@ -31,6 +31,59 @@ pthread_mutex_t * get_project_lock(char * proj_name)
         pthread_mutex_unlock(&table_lck);
         return NULL;
 }
+
+/*
+ *      Increments number of commited files by searching for project node in list
+ *      Returns amount it was incremented to. 
+ */
+int increment_commit_count(char * proj_name)
+{
+        pthread_mutex_lock(&table_lck);
+        is_table_lcked = TRUE;
+        proj_t * ptr = proj_list;
+
+        while (ptr != NULL)
+        {
+                if (strcmp(ptr->proj_name, proj_name) == 0)
+                {
+                        is_table_lcked = FALSE;
+                        ++ptr->num_commits;     
+                        pthread_mutex_unlock(&table_lck);
+                        return ptr->num_commits;
+                }
+                ptr = ptr->next;
+        }
+        is_table_lcked = FALSE;
+        pthread_mutex_unlock(&table_lck);
+        return -1;
+}
+
+/*
+ *      Resets commit count for project proj_name to zero and returns previous value
+ */ 
+int reset_commit_count(char * proj_name)
+{
+        pthread_mutex_lock(&table_lck);
+        is_table_lcked = TRUE;
+        proj_t * ptr = proj_list;
+
+        while (ptr != NULL)
+        {
+                if (strcmp(ptr->proj_name, proj_name) == 0)
+                {
+                        is_table_lcked = FALSE;
+                        int commit_count = ptr->num_commits;     
+                        ptr->num_commits = 0;
+                        pthread_mutex_unlock(&table_lck);
+                        return commit_count;
+                }
+                ptr = ptr->next;
+        }
+        is_table_lcked = FALSE;
+        pthread_mutex_unlock(&table_lck);
+        return -1;
+}
+
 /*
  *      Adds project to server's proj_list.
  *      Returns lock to new project if successful; otherwise NULL.
@@ -66,6 +119,7 @@ pthread_mutex_t * add_project(char * proj_name, char * file, int line)
                 return NULL;
         }
         strcpy(new_front->proj_name, proj_name);
+        new_front->num_commits = 0;
         if (pthread_mutex_init(&new_front->lock, NULL) != 0)
         {
                 fprintf(stderr, "[add_project] Mutex init failed. FILE: %s. LINE: %d.\n", file, line);

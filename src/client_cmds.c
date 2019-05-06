@@ -1042,8 +1042,30 @@ int _commit(char * proj_name)
         }
 
         close(fd_commit);
+
+        /* initiate connection to server, send start message to inform server that you're sending over a commit */
+        sd = init_socket();
+        send_cmd_proj(sd, proj_name, "com");
+
+        /* wait for server's response */
+        char buf[31];
+        bzero(buf, 31);
+        better_read(sd, buf, 30, __FILE__, __LINE__);
+        printf("Message received from server: %s\n", buf);
+
+        if (strcmp(buf, "Error: Project does not exist.") == 0)
+        {
+                fprintf(stderr, "Server returned error.\n");
+                return 1;
+        }
+
+        /* send file over to server */
+        int ret = compress_and_send(sd, commit_path, FALSE);
+
+        close(sd);
+
         free_manifest(server_manifest);
         free_manifest(client_manifest);
         free_manifest(updated_client_manifest);
-        return 0;
+        return ret;
 }

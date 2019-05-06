@@ -25,5 +25,9 @@ int send_manifest(int sd, char * proj_name);
  */
 int send_server_copy(int sd, char * file_name);
 
+/*
+ *      Listen for request to add .commit file for project
+ */
+int receive_commit(int sd, char * proj_name);
 
 #endif
