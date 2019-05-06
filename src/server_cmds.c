@@ -369,3 +369,53 @@ int receive_commit(int sd, char * proj_name)
 
         return 0;
 }
+
+int push_handler(int sd, char * proj_name)
+{
+        if (dir_exists(".server_repo") == 0)
+                return 1;
+        pthread_mutex_t * lock = get_project_lock(proj_name);
+        if (lock == NULL)
+                return 1;
+        else
+        {
+                if (better_send(sd, "Found repository. Sending now.", 30, 0, __FILE__, __LINE__) != 1)
+                        return 1;
+        }
+        while (is_table_lcked)
+                printf("table locked.\n");
+        pthread_mutex_lock(lock);
+
+        /* Mark another thread as accessing */
+        pthread_mutex_lock(&access_lock);
+        num_access++;
+        pthread_mutex_unlock(&access_lock);
+
+        /* read decompressed file which will tell us the entire log of files that are changed with the files themselves */
+        
+        /* when we get the commit file, we make a linked list out of it and then compare all other commits to see if one exists */
+        
+        /* compress and take a backup of the current project_manifest/directory and store in server_backups/ */
+        int project_dir_path_size = strlen(".server_repo/") + strlen(proj_name) + 1;
+        char project_dir_path[project_dir_path_size];
+        sprintf(project_dir_path, ".server_repo/%s", proj_name);
+        
+        char * current_version_zip = recursive_zip(project_dir_path, TRUE);
+        int compressed_size;
+        char * compressed = _compress(current_version_zip, &compressed_size);
+
+        /* fetch current version and write zip to .server_backups/
+
+        free(current_version_zip);
+        free(compressed);
+
+        /* iterate through eachf ile and make sure that these changes are being logged to .histroy */
+
+        /* Unmark as another thread as accessing */
+        pthread_mutex_lock(&access_lock);
+        num_access--;
+        pthread_mutex_unlock(&access_lock);
+        pthread_mutex_unlock(lock);
+
+        return 0;
+}

@@ -9,6 +9,7 @@
 #include <dirent.h>             // Directory
 #include <fcntl.h>              // open flags
 #include "compression.h"
+#include "commit_utils.h"
 /*
  *    Sends nbyte bytes from the filedescriptor fd and stores them in buf.
  *    Returns 1 if successful. Otherwise returns a value according to the error.
@@ -186,7 +187,6 @@ void remove_dir(char * dir)
 int compress_and_send(int sd, char * name, int is_server)
 {
         char * zipped = recursive_zip(name, is_server);
-        printf("zipped: %s\n", zipped);
         int zipped_size = strlen(zipped);
         int num_digits = 0;
         int i = zipped_size;
@@ -311,3 +311,162 @@ char * receive_file(int sd)
         char * decompressed = _decompress(file, d_file_size, file_size);
         return decompressed;
 }
+
+/*
+ *      Generates zipped buffer for an individual file (used for commits because it adds op code for function)
+ */
+char * build_file_buffer(char * file_buffer, char * file_path, int size, char op_code)
+{
+        char size_str[10] = {0,0,0,0,0,0,0,0,0,0};
+        sprintf(size_str, "%d", size);
+
+        /* Buffer Format:
+                <FILEPATH>\n
+                <F (for File)>\n
+                <OPCODE: M, A, D>\n
+                <SIZE>\n
+                <FILE>\n
+                \0
+        */
+
+        /* compute buffer size and file info start */
+        int buffer_size = sizeof(char) * ( strlen(file_path) + 1 + 1 + strlen(size_str) + size + 6);
+        int file_start = sizeof(char) * ( strlen(file_path) + 1 + 1 + strlen(size_str) + 4);
+
+        /* allocate space */
+        char * buf = (char *) malloc(buffer_size);        
+        bzero(buf, buffer_size);
+        
+        /* write file metadata at the beginning of the buffer */
+        sprintf(buf, "%s\nF\n%c\n%d\n", file_path, op_code, size);
+
+        /* write file contents right after it */
+        strcpy(&buf[file_start], file_buffer);
+        buf[buffer_size-2] = '\n';
+        buf[buffer_size-1] = '\0';
+
+        printf("buffer:\n%s\n", buf);
+
+        return buf;
+} 
+
+/*
+ *      Compress all commit entries together and send them out to the server to complete push
+ */
+int push_changes_to_server(int sd, commit_entry * commits, char * commit_file)
+{
+        /* keep track of total size */
+        int zipped_size = 2;
+
+        /* start by adding the commit file to the front of the list */
+        node * front = (node *) malloc(sizeof(node));
+        front->data = build_file_buffer(commit_file, ".commit", strlen(commit_file), 'M');
+        front->next = NULL;
+
+        /* increment total zip size */
+        zipped_size += strlen(front->data);
+
+        node * ptr = front;
+
+        commit_entry * commit_ptr = commits;
+        while (commit_ptr)
+        {
+                int fd = open(commit_ptr->file_path, O_RDONLY, 00600);
+                if (fd == -1)
+                {
+                        fprintf(stderr, "[push_changes] Error opening file %s.\n", commit_ptr->file_path);
+                        return 1;
+                }
+
+                /* fetch file contents and size */
+                int size = lseek(fd, 0, SEEK_END);
+                lseek(fd, 0, SEEK_SET);
+                char buf[size+1];
+                if (better_read(fd, buf, size, __FILE__, __LINE__) != 1)
+                        return NULL;
+                close(fd);
+
+                /* allocate space for new node */
+                ptr->next = (node *) malloc(sizeof(node));
+                ptr = ptr->next;
+                
+                /* build zip contents with file metadata */
+                ptr->data = build_file_buffer(buf, commit_ptr->file_path, size, commit_ptr->op_code);
+                ptr->next = NULL;
+
+                /* increment total zip size */
+                zipped_size += strlen(ptr->data);
+
+                /* travel to next commit in linked list */
+                commit_ptr = commit_ptr->next;
+        }
+
+        /* build zip buffer with size zipped_size */
+        char * zipped_buffer = (char *) malloc(sizeof(char) * zipped_size);
+        bzero(zipped_buffer, zipped_size);
+
+        /* iterate through linked list of zipped files and write them to one buffer */
+        int i = 0;
+        while (front != NULL)
+        {
+                strncpy(&zipped_buffer[i], front->data, strlen(front->data));
+                i = strlen(zipped_buffer);
+                node * old = front;
+                front = front->next;
+                free(old->data);
+                free(old);
+        }
+        zipped_buffer[zipped_size-1] = '\0';
+
+        printf("zipped: %s\n", zipped_buffer);
+
+        int num_digits = 0;
+        int i = zipped_size;
+        while (i != 0)
+        {
+                num_digits++;
+                i /= 10;
+        }
+
+        // Send three digit length of file size
+        char file_size_str[4] = {'0','0','0',0};
+        if (num_digits < 10)
+                sprintf(&file_size_str[2], "%d", num_digits);
+        else if (num_digits < 100)
+                sprintf(&file_size_str[1], "%d", num_digits);
+        else
+                sprintf(&file_size_str[0], "%d", num_digits);
+        printf("sending %s\n", file_size_str);
+        if (better_send(sd, file_size_str, 3, 0, __FILE__, __LINE__) != 1)
+        {
+                free(zipped_buffer);
+                return 1;
+        }
+        
+        /* now that we have a singular zipped buffer, we should compress and send it to server */
+
+        char zip_size_str[10] = {0,0,0,0,0,0,0,0,0,0};
+        sprintf(zip_size_str, "%d", zipped_size);
+        // Send file size
+        printf("sending size %s\n", zip_size_str);
+        fflush(stdout);
+        if (better_send(sd, zip_size_str, strlen(zip_size_str), 0, __FILE__, __LINE__) != 1)
+        {
+                free(zipped_buffer);
+                return 1;
+        }
+        int c_s;
+        char * compressed = _compress(zipped_buffer, &c_s);
+        free(zipped_buffer);
+        char c_s_str[10] = {0,0,0,0,0,0,0,0,0,0};
+        sprintf(c_s_str, "%d", c_s);
+        // Send compressed file
+        if (send_file(sd, compressed, c_s_str))
+        {
+                fprintf(stderr, "[checkout] send_file returned error. FILE: %s. LINE: %d.\n", __FILE__, __LINE__);
+                free(compressed);
+                return 1;
+        }
+        free(compressed);
+        return 0;
+} 
