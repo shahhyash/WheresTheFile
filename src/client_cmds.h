@@ -58,5 +58,9 @@ int current_version(char * proj_name);
  *      Creates a .commit file to keep track of all changes on client's copy of project
  */
 int _commit(char * proj_name);
+/*
+ *      Performs all requried operations to fulfill the most recent commit.
+ */ 
+int _push(char * proj_name);
 
 #endif

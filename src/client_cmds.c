@@ -12,6 +12,7 @@
 #include <openssl/sha.h>        // Hash function
 #include "compression.h"
 #include <string.h>
+#include "commit_utils.h"
 
 /*
  *      Returns file descriptor to the socket as specified by the PORT and IP
@@ -901,7 +902,7 @@ int _commit(char * proj_name)
         sprintf(dot_update_path, "%s/.Update", proj_name);
         if (file_exists(dot_update_path))
         {
-                fprintf(stderr, "[_commit] ERROR: An existing .Update file does not exist. Please run update before running upgrade.\n");
+                fprintf(stderr, "[_commit] ERROR: An existing .Update file  exists for that project. Please run upgrade to complete that operation.\n");
                 return 1;
         }
 
@@ -1068,4 +1069,55 @@ int _commit(char * proj_name)
         free_manifest(client_manifest);
         free_manifest(updated_client_manifest);
         return ret;
+}
+
+int _push(char * proj_name)
+{
+        /* check if local version of project exists */
+        if (!dir_exists(proj_name))
+        {
+                fprintf(stderr, "[push] ERROR: Project does not exist locally.\n");
+                return 1;
+        }
+
+        /* check if .Update exists from previous iteration - if it does, direct user to run upgrade first */
+        char dot_update_path[strlen(proj_name) + strlen("/.Update")];
+        sprintf(dot_update_path, "%s/.Update", proj_name);
+        if (file_exists(dot_update_path))
+        {
+                fprintf(stderr, "[push] ERROR: An existing .Update file exists for that project. Please run upgrade to complete that operation.\n");
+                return 1;
+        }
+
+        /* begin by initializing a connection to the server */
+        int sd = init_socket();
+        if (sd == -1)
+        {
+                fprintf(stderr, "[push] Error connecting to server.");
+                return 1;
+        }
+
+        /* fetch manifest file from server and store in a linked list - if it is unable to fetch from server it might not be a valid project */
+        char * manifest_contents = fetch_server_manifest(sd, proj_name);
+        if (manifest_contents == NULL)
+        {
+                fprintf(stderr, "[push] Error fetching manifest. FILE %s. LINE: %d.\n", __FILE__, __LINE__);
+                return 1;
+        }
+        close(sd);
+        free(manifest_contents);
+
+        /* fetch local .commit file */
+        char * commit_contents = fetch_commit_file(proj_name, FALSE, NULL);
+        if(commit_contents == NULL)
+        {
+                fprintf(stderr, "[push] Error fetching commit file. Please run commit before running push\n");
+                return 1;
+        }
+
+        commit_entry * commits = read_commit_file(commit_contents);
+        
+        /* TODO: From here on, we need to compile a list of files that need to be sent to the server and send them out */
+
+        return 0;
 }

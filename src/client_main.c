@@ -113,6 +113,15 @@ int main(int argc, char * argv[])
                 }
                 ret = _commit(argv[2]);
         }
+        else if (strcmp(argv[1], "push") == 0)
+        {
+                if (argc != 3)
+                {
+                        fprintf(stderr, "Usage: ./WTF push <project_name>\n");
+                        exit(EXIT_FAILURE);
+                }
+                ret = _push(argv[2]);
+        }
         else
         {
                 int sock = init_socket();
