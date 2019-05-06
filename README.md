@@ -72,8 +72,8 @@ Our client and server each respectively print messages to their terminal
 - Server shutsdown
 - Server terminates thread
 
-## File Manifest
-We read the file manifest into a struct to only read a manifest once during our implementation.
+## Efficiency Notes
+We read the file manifest into a struct to only read a manifest once during our implementation. We also only send over modified files in a compressed buffer during push.
 
 ## General Implementation Notes
 Our client commands are implemented as detailed in the project guide.
@@ -89,4 +89,4 @@ We detail the structure and modularity of our .c files below:
 - server_cmds: Contains functions to execute commands sent by client.
 - server_main: Manages startup and termination of the server. Manages client-server communication. Has main function for WTFserver.
 - threads_and_locks: Contains functions for managing mutexes for projects and the project table.
-- WTFtest: Runs test cases. 
+- WTFtest: Runs test cases.
