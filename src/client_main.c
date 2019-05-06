@@ -104,6 +104,15 @@ int main(int argc, char * argv[])
                 }
                 ret =  current_version(argv[2]);
         }
+        else if (strcmp(argv[1], "commit") == 0)
+        {
+                if (argc != 3)
+                {
+                        fprintf(stderr, "Usage: ./WTF commit <project_name>\n");
+                        exit(EXIT_FAILURE);
+                }
+                ret = _commit(argv[2]);
+        }
         else
         {
                 int sock = init_socket();
