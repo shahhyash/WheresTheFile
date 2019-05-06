@@ -3,17 +3,27 @@ In this file, we will describe the different types of test cases that our progra
 Server
 We tested the multithreading and made sure our code had no race conditions by sending multiple client requests to the server at the same time. We tested sending multiple requests to the same project and watched the output to make sure that they were handled correctly for the current state of the project. In order to test that the mutexes were being implemented properly, we temporarily put an 10 second sleep() in parts of the code where a lock was supposed to have just happened. Then we used a different client to see if the client would wait until the mutex was resolved. As expected the client had to wait until the thread resolving the other client unlocked the respective mutex. This was repeated for table locks, project locks, and access counter locks as described in the README.pdf. We also ensured that the memory was properly cleaned up and threads were properly shutdown when a SIGINT signal is sent to the server.
 
-Configure
+Client connecting to server
+For all functions, when the client attempts to connect to the server, it tries every 3 seconds until it gets a connection. This works as expected from tests. If the .configure file has not been created, the client returns and prints error to the user. This is a subset of the test cases for the commands below that communicate between the client and server.
 
+File transfer
+File transfer was tested by calling diff on the terminal between a file (after being decompressed) transferred to/from the server/client from/to the client/server. We found that our data matches.
 
 Checkout
-
+We tested the following cases:
+-Client requests a project that does not exist. Result: Error message returned by server to client. Client exits with error and informs user.
+-Client requests a project that already exists on the client side. Result: Client prints error and informs user that project already exists on the client side.
+-Client requests a valid project. Result: Server sends compressed file containing project. Client fully decompresses file and creates the directory and all files within it according to manifest received in the single transferred file.
 
 Update
 
 
 Upgrade
-
+We tested the following cases:
+-Client tries to upgrade a project that does not exist on the server. Result: Error message returned by server to client. Client exits with error and informs user.
+-Client calls upgrade for a project but not .Update file exists for that project. Result: Client exits with error and informs user to run Update first.
+-Client calls upgrade for a project with a blank .Update file. Result: Client informs user that the project is up to date and deletes .Update file.
+-Client calls upgrade for a project with a valid .Update file. Result: The client applies the changes listed in the .Update to the client's local copy of the project. It deletes the entry from the client's .Manifest for all files tagged with a “D” and fetches from the server and writes or overwrites all files on the client side that are tagged with a “M” or “A”, respectively. When it is done processing all updates listed in it, the client deletes the .Update file.
 
 Commit
 
@@ -22,21 +32,36 @@ Push
 
 
 Create
-
+We tested the following cases:
+-Try creating a project that does not exist. Result: Error message returned by server to client. Client exits with error and informs user.
+-Create a valid project. Result: Server sends compressed manifest over with default version (=1). Client creates .manifest file with this decompressed data.
+-Create a project that already exists: Result: Error message returned by server to client. Client exits with error and informs user.
 
 Destroy
-
+We tested the following cases:
+-Try destroying a project that does not exist. Result: Error message returned by server to client. Client exits with error and informs user.
+-Destroying a valid project. Result: Server deletes project directory.
 
 Add
-
+We tested the following cases:
+-Try adding file that does not exist in the project folder or the manifest does exists. Result: Error caught and printed to terminal. Manifest stays unchanged.
+-Add valid file that exists in the project folder. Result: Line added to manifest with version number, filename, and hash of file data.
+-Add file that exists in the project folder and already exists in the manifest. Result: If the hash matches, file version in manifest stays the same. Otherwise, the version number is incremented and the newer hash replaces the old hash.
 
 Remove
-
+We tested the following cases:
+-Try removing file that does not exist in the project folder or the manifest does not exists. Result: Error caught and printed to terminal. Manifest stays unchanged.
+-Remove valid file that exists in the project folder. Result: Line removed from manifest.
 
 CurrentVersion
-
+-Request version for a project that does not exist. Result: Error message returned by server. Client exits with error and informs user.
+-Request valid project version. Result: Client outputs a list of all files under the project name, along with their version number
 
 History
-
+-Request history for a project that does not exist. Result: Error message returned by server. Client exits with error and informs user.
+-Request valid history. Result: The server sends over a compressed file containing the history of all operations performed on all successful pushes since the project's creation, that is, it sends the .History file. The client receives the file, decompresses it, parses it, and outputs each version number, each push's changes, and newline separating each push's log of changes.
 
 Rollback
+-Request rollback for a project that does not exist. Result: Error message returned by server. Client exits with error and informs user.
+-Request rollback for a project with an invalid version number. Result: Error message returned by server. Client exits with error and informs user.
+-Request valid rollback. Result: Server deletes all newer versions than the specified version. Server decompresses specified version and returns success to client. Client outputs success to user.
