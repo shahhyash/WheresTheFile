@@ -487,7 +487,7 @@ int _update(char * proj_name)
                 if (server_copy->file_path && server_copy->hash_code) /* check if manifest item is not the root item */
                 {
                         client_copy = client_manifest;
-                        while (client_copy)
+                        while (client_copy != NULL)
                         {
                                 if (client_copy->file_path)
                                 {
@@ -502,6 +502,7 @@ int _update(char * proj_name)
                         if (client_copy != NULL)
                         {
                                 int version_cmp = server_copy->version - client_copy->version;
+                                printf("%s vs %s\n", "server_copy->hash_code", client_copy->hash_code);
                                 int hash_cmp = strcmp(server_copy->hash_code, client_copy->hash_code);
 
                                 if (version_cmp == 0 && hash_cmp == 0)
@@ -605,7 +606,7 @@ int _update(char * proj_name)
                 if(conflicts_found)
                 {
                         printf("Please fix the conflicts listed above before running update again.\n");
-                        close(fd_update);                        
+                        close(fd_update);
                         remove(dot_update_path);
                         free_manifest(client_manifest);
                         free_manifest(server_manifest);
@@ -626,9 +627,9 @@ int _update(char * proj_name)
                         update_buf[file_length]='\0';
                         printf("%s", update_buf);
                 }
-                
+
         }
-        
+
         free_manifest(client_manifest);
         free_manifest(server_manifest);
 
@@ -643,8 +644,8 @@ char * fetch_server_copy(int sd, char * file_name)
 
         char buf[31];
         bzero(buf, 31);
-        if (better_read(sd, buf, 30, __FILE__, __LINE__) != 1)
-                return NULL;
+        if (better_read(sd, buf, 30, __FILE__, __LINE__) != 1){
+                return NULL;}
         printf("Message received from server: %s\n", buf);
         if (strcmp(buf, "Error: Project does not exist.") == 0)
         {
@@ -657,7 +658,19 @@ char * fetch_server_copy(int sd, char * file_name)
                 fprintf(stderr, "[fetch_server_manifest] Error decompressing.\n");
                 return NULL;
         }
-        return decompressed;
+        char * newline = strstr(decompressed, "\n");
+        int size;
+        // printf("newline %s\n", newline);
+        sscanf(&newline[2], "%d\n", &size);
+        // printf("size %d\n", size);
+        char * file = (char *) malloc(sizeof(char)*(size+1));
+        bzero(file, size+1);
+        newline = strstr(&newline[2], "\n");
+        newline = strstr(&newline[1], "\n");
+        // printf("newline %s\n", newline);
+        free(decompressed);
+        strncpy(file, &newline[1], size);
+        return file;
 }
 
 int _upgrade(char * proj_name)
@@ -693,11 +706,41 @@ int _upgrade(char * proj_name)
                 fprintf(stderr, "[_update] Error fetching manifest. FILE %s. LINE: %d.\n", __FILE__, __LINE__);
                 return 1;
         }
+        char svr_msg[31];
+        bzero(svr_msg, 31);
+        if (better_read(sd, svr_msg, 30, __FILE__, __LINE__) != 1)
+        {
+                return 1;
+        }
+        close(sd);
+        sd = init_socket();
+        if (sd == -1)
+        {
+                fprintf(stderr, "[_upgrade] Error connecting to server.");
+                return 1;
+        }
         manifest_entry * server_manifest = read_manifest_file(manifest_contents);
+
         free(manifest_contents); /* free buffer of manifest file bc we don't need it anymore */
+        if (server_manifest == NULL)
+        {
+                fprintf(stderr, "[upgrade] Error fetching server_manifest. FILE: %s. LINE: %d\n", __FILE__, __LINE__);
+                /* free allocated resources */
+                free_manifest(server_manifest);
+                return 1;
+        }
 
         /* fetch list of required updates for this project */
         update_entry * updates = fetch_updates(proj_name);
+        if (server_manifest == NULL)
+        {
+                fprintf(stderr, "[upgrade] Error fetching updates. FILE: %s. LINE: %d\n", __FILE__, __LINE__);
+                /* free allocated resources */
+                free_manifest(server_manifest);
+
+                free_updates(updates);
+                return 1;
+        }
         update_entry * update_ptr = updates;
 
         while (update_ptr)
@@ -705,6 +748,15 @@ int _upgrade(char * proj_name)
                 if (update_ptr->code == 'M')
                 {
                         char * file_contents = fetch_server_copy(sd, update_ptr->file_path);
+
+                        if (file_contents == NULL)
+                        {
+                                fprintf(stderr, "[upgrade] Error fetching server copy. FILE: %s. LINE: %d\n", __FILE__, __LINE__);
+                                /* free allocated resources */
+                                free_manifest(server_manifest);
+                                free_updates(updates);
+                                return 1;
+                        }
                         int fd = open(update_ptr->file_path, O_WRONLY | O_TRUNC, 00600);
                         if (fd == -1)
                         {
@@ -714,7 +766,7 @@ int _upgrade(char * proj_name)
                                 free_updates(updates);
                                 return 1;
                         }
-                        
+
                         if (better_write(fd, file_contents, strlen(file_contents), __FILE__, __LINE__) <= 0)
                         {
                                 fprintf(stderr, "[upgrade] Unable to write to file %s during modification. Exiting process...\n", update_ptr->file_path);
@@ -723,13 +775,23 @@ int _upgrade(char * proj_name)
                                 free_updates(updates);
                                 return 1;
                         }
-                        
+                        char * f_name = strstr(update_ptr->file_path, "/");
+                        _add(proj_name, &f_name[1]);
+
                         close(fd);
                         free(file_contents);
-                }       
+                }
                 else if (update_ptr->code == 'A')
                 {
                         char * file_contents = fetch_server_copy(sd, update_ptr->file_path);
+                        if (file_contents == NULL)
+                        {
+                                fprintf(stderr, "[upgrade] Error fetching server copy. FILE: %s. LINE: %d\n", __FILE__, __LINE__);
+                                /* free allocated resources */
+                                free_manifest(server_manifest);
+                                free_updates(updates);
+                                return 1;
+                        }
                         int fd = open(update_ptr->file_path, O_WRONLY | O_CREAT, 00600);
                         if (fd == -1)
                         {
@@ -748,7 +810,8 @@ int _upgrade(char * proj_name)
                                 free_updates(updates);
                                 return 1;
                         }
-                        
+                        char * f_name = strstr(update_ptr->file_path, "/");
+                        _add(proj_name, &f_name[1]);
                         close(fd);
                         free(file_contents);
                 }

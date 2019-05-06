@@ -222,6 +222,7 @@ int send_server_copy(int sd, char * file_path)
 
         /* fetch project name from file path */
         char * sub_path = index(file_path, '/');
+        printf("Fetching %s from %s\n", sub_path, file_path);
         int proj_name_length = sub_path - file_path;
         char proj_name[proj_name_length + 1];
         strncpy(proj_name, file_path, proj_name_length);
@@ -238,14 +239,14 @@ int send_server_copy(int sd, char * file_path)
         while (is_table_lcked)
                 printf("table locked.\n");
         pthread_mutex_lock(lock);
-        
+
         /* Mark another thread as accessing */
         pthread_mutex_lock(&access_lock);
         num_access++;
         pthread_mutex_unlock(&access_lock);
         char file_name[strlen(".server_repo/") + strlen(file_path) + 1];
         bzero(file_name, strlen(".server_repo/") + strlen(file_path) + 1);
-        
+
         /* Read and compress manifest */
         sprintf(file_name, ".server_repo/%s", file_path);
 

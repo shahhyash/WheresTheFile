@@ -184,6 +184,7 @@ void * client_comm(void * args)
         }
         else if (strcmp(command, "fet") == 0) /* fet for "fetch file" */
         {
+                printf("Fetching files mode.\n");
                 /* kind of hacking it where client actualy sent file path to server not project name */
                 if (send_server_copy(sd, proj_name))
                 {
