@@ -334,9 +334,9 @@ char * build_file_buffer(char * file_buffer, char * file_path, int size, char op
         int file_start = sizeof(char) * ( strlen(file_path) + 1 + 1 + strlen(size_str) + 4);
 
         /* allocate space */
-        char * buf = (char *) malloc(buffer_size);        
+        char * buf = (char *) malloc(buffer_size);
         bzero(buf, buffer_size);
-        
+
         /* write file metadata at the beginning of the buffer */
         sprintf(buf, "%s\nF\n%c\n%d\n", file_path, op_code, size);
 
@@ -348,7 +348,7 @@ char * build_file_buffer(char * file_buffer, char * file_path, int size, char op
         printf("buffer:\n%s\n", buf);
 
         return buf;
-} 
+}
 
 /*
  *      Compress all commit entries together and send them out to the server to complete push
@@ -383,13 +383,13 @@ int push_changes_to_server(int sd, commit_entry * commits, char * commit_file)
                 lseek(fd, 0, SEEK_SET);
                 char buf[size+1];
                 if (better_read(fd, buf, size, __FILE__, __LINE__) != 1)
-                        return NULL;
+                        return 1;
                 close(fd);
 
                 /* allocate space for new node */
                 ptr->next = (node *) malloc(sizeof(node));
                 ptr = ptr->next;
-                
+
                 /* build zip contents with file metadata */
                 ptr->data = build_file_buffer(buf, commit_ptr->file_path, size, commit_ptr->op_code);
                 ptr->next = NULL;
@@ -421,7 +421,7 @@ int push_changes_to_server(int sd, commit_entry * commits, char * commit_file)
         printf("zipped: %s\n", zipped_buffer);
 
         int num_digits = 0;
-        int i = zipped_size;
+        i = zipped_size;
         while (i != 0)
         {
                 num_digits++;
@@ -442,7 +442,7 @@ int push_changes_to_server(int sd, commit_entry * commits, char * commit_file)
                 free(zipped_buffer);
                 return 1;
         }
-        
+
         /* now that we have a singular zipped buffer, we should compress and send it to server */
 
         char zip_size_str[10] = {0,0,0,0,0,0,0,0,0,0};
@@ -469,4 +469,4 @@ int push_changes_to_server(int sd, commit_entry * commits, char * commit_file)
         }
         free(compressed);
         return 0;
-} 
+}

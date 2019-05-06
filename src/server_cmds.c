@@ -407,19 +407,19 @@ int push_handler(int sd, char * proj_name)
         pthread_mutex_unlock(&access_lock);
 
         /* read decompressed file which will tell us the entire log of files that are changed with the files themselves */
-        
+
         /* when we get the commit file, we make a linked list out of it and then compare all other commits to see if one exists */
-        
+
         /* compress and take a backup of the current project_manifest/directory and store in server_backups/ */
         int project_dir_path_size = strlen(".server_repo/") + strlen(proj_name) + 1;
         char project_dir_path[project_dir_path_size];
         sprintf(project_dir_path, ".server_repo/%s", proj_name);
-        
+
         char * current_version_zip = recursive_zip(project_dir_path, TRUE);
         int compressed_size;
         char * compressed = _compress(current_version_zip, &compressed_size);
 
-        /* fetch current version and write zip to .server_backups/
+        /* fetch current version and write zip to .server_backups */
 
         free(current_version_zip);
         free(compressed);

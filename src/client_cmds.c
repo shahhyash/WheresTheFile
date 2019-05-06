@@ -1080,7 +1080,7 @@ int _commit(char * proj_name)
 int _rollback(char * proj_name, char * version)
 {
         int i = 0;
-        for (i = 0; i < strlen(version), i++)
+        for (i = 0; i < strlen(version); i++)
         {
                 if (!isdigit(version[i]))
                 {
@@ -1114,19 +1114,19 @@ int _history(char * proj_name)
                 return 1;
         char buf[31];
         bzero(buf, 31);
-        if (better_read(sd, buf, 30, __FILE__, __LINE__) != 1){
-                return NULL;}
+        if (better_read(sd, buf, 30, __FILE__, __LINE__) != 1)
+                return 1;
         printf("Message received from server: %s\n", buf);
         if (strcmp(buf, "Error: Project does not exist.") == 0)
         {
                 fprintf(stderr, "Server returned error.\n");
-                return NULL;
+                return 1;
         }
         char * decompressed = receive_file(sd);
         if (decompressed == NULL)
         {
                 fprintf(stderr, "[fetch_server_manifest] Error decompressing.\n");
-                return NULL;
+                return 1;
         }
         char * history = strstr(decompressed, "\n");
         history = strstr(&history[1], "\n");
@@ -1174,7 +1174,7 @@ int _push(char * proj_name)
         free(manifest_contents);
 
         /* fetch local .commit file */
-        char * commit_contents = fetch_commit_file(proj_name, FALSE, NULL);
+        char * commit_contents = fetch_commit_file(proj_name, FALSE, 0);
         if(commit_contents == NULL)
         {
                 fprintf(stderr, "[push] Error fetching commit file. Please run commit before running push\n");

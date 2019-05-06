@@ -6,6 +6,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <unistd.h>
 
 char * fetch_commit_file(char * proj_name, int is_server, int commit_id)
 {
@@ -84,7 +85,7 @@ commit_entry * read_commit_file(char * file_contents)
 
                 ptr->op_code = token[0];
             }
-            
+
             if (mode == 2)
                     ptr->version = atoi(token);
 
@@ -108,7 +109,7 @@ commit_entry * read_commit_file(char * file_contents)
 
         commit_line = strtok_r(NULL, "\n", &line_saveptr);
     }
-    
+
     return root;
 }
 
