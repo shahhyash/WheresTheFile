@@ -829,7 +829,7 @@ int _upgrade(char * proj_name)
                         printf("[upgrade] Removing file %s from manifest for project %s.\n", &update_ptr->file_path[filepath_start], proj_name);
                         _remove(proj_name, &update_ptr->file_path[filepath_start]);
                 }
-                else
+                else if (update_ptr->code != 'U')
                 {
                         fprintf(stderr, "[upgrade] ERROR: Invalid update code read: %c.\n", update_ptr->code);
                 }
@@ -873,5 +873,166 @@ int current_version(char * proj_name)
                 printf("%s\n", token);
                 token = strtok(NULL, "\n");
         }
+        return 0;
+}
+
+int _commit(char * proj_name)
+{
+        /* check if local version of project exists */
+        if (!dir_exists(proj_name))
+        {
+                fprintf(stderr, "[_commit] ERROR: Project does not exist locally.\n");
+                return 1;
+        }
+
+        /* check if .Update exists from previous iteration - if it does, direct user to run upgrade first */
+        char dot_update_path[strlen(proj_name) + strlen("/.Update")];
+        sprintf(dot_update_path, "%s/.Update", proj_name);
+        if (file_exists(dot_update_path))
+        {
+                fprintf(stderr, "[_commit] ERROR: An existing .Update file does not exist. Please run update before running upgrade.\n");
+                return 1;
+        }
+
+        /* begin by initializing a connection to the server */
+        int sd = init_socket();
+        if (sd == -1)
+        {
+                fprintf(stderr, "[_commit] Error connecting to server.");
+                return 1;
+        }
+
+        /* fetch manifest file from server and store in a linked list - if it is unable to fetch from server it might not be a valid project */
+        char * manifest_contents = fetch_server_manifest(sd, proj_name);
+        if (manifest_contents == NULL)
+        {
+                fprintf(stderr, "[_commit] Error fetching manifest. FILE %s. LINE: %d.\n", __FILE__, __LINE__);
+                return 1;
+        }
+        close(sd);
+        manifest_entry * server_manifest = read_manifest_file(manifest_contents);
+        free(manifest_contents); /* free buffer of manifest file bc we don't need it anymore */
+
+        /* fetch manifest file from client and store in a linked list */
+        manifest_contents = fetch_client_manifest(proj_name);
+        manifest_entry * client_manifest = read_manifest_file(manifest_contents);
+        free(manifest_contents);
+
+        /* compare server and client manifest versions */
+        if (client_manifest->version != server_manifest->version)
+        {
+                fprintf(stderr, "ERROR: Server has a newer copy than your current version. Run update to checkout these changes before you run commit.\n");
+                return 1;
+        }
+
+        /* build client manifest list again and update its hashes */
+        manifest_contents = fetch_client_manifest(proj_name);
+        manifest_entry * updated_client_manifest = read_manifest_file(manifest_contents);
+        free(manifest_contents);
+        update_hashes(updated_client_manifest);
+
+        /* open .commit file to store changes */
+        char commit_path[strlen(proj_name) + strlen("/.commit") + 1];
+        sprintf(commit_path, "%s/.commit", proj_name);
+        int fd_commit = open(commit_path, O_RDWR | O_CREAT, 00600);
+
+        /* iterate to first file in manifest lists bc first item is the root item for manifest version */
+        manifest_entry * client_ptr = client_manifest->next;
+        manifest_entry * updated_client_ptr = updated_client_manifest->next;
+        manifest_entry * server_ptr;
+
+        /* iterate through both lists and write hashes thar don't match */
+        while (client_ptr && updated_client_ptr)
+        {
+                char * file_path = updated_client_ptr->file_path;
+                int exists_in_server = 0;
+                        
+                /* check if server copy exists */
+                server_ptr = server_manifest->next;
+                while (server_ptr)
+                {
+                        if(strcmp(file_path, server_ptr->file_path) == 0)
+                        {
+                                exists_in_server = 1;
+
+                                if(strcmp(updated_client_ptr->hash_code, server_ptr->hash_code) != 0 && updated_client_ptr->version <= server_ptr->version)
+                                {
+                                        /* commit fails - hashcode is not the same and the updated version is not greater than server copy */
+                                        fprintf(stderr, "[commit] ERROR: Version mismatch for %s. Please synch with the repository before committing changes.\n", updated_client_ptr->file_path);
+                                        close(fd_commit);
+                                        free_manifest(server_manifest);
+                                        free_manifest(client_manifest);
+                                        remove(commit_path);
+                                        return 1;
+                                }
+                                break;
+                        }
+                        server_ptr = server_ptr->next;
+                }
+
+                /* check for local modifications */
+                if(strcmp(client_ptr->hash_code, updated_client_ptr->hash_code) != 0)
+                {
+                        int commit_entry_size = 4 + strlen(client_ptr->file_path) + 1 + strlen(updated_client_ptr->hash_code) + 2;
+                        char commit_entry[commit_entry_size];
+                        ++updated_client_ptr->version;
+                        sprintf(commit_entry, "%c %d %s %s\n", 'M', updated_client_ptr->version, updated_client_ptr->file_path, updated_client_ptr->hash_code);
+                        commit_entry[commit_entry_size] = '\0';
+                        printf("[commit_entry] %s", commit_entry);
+                        better_write(fd_commit, commit_entry, strlen(commit_entry), __FILE__, __LINE__);
+                }
+
+                /* check if file needs to be added - only if it doesn't exist in server and the local version numbers are the same */
+                if (!exists_in_server && client_ptr->version == updated_client_ptr->version)
+                {
+                        /* file exists in client but not in server manifest, should be added */
+                        int commit_entry_size = 4 + strlen(updated_client_ptr->file_path) + 1 + strlen(updated_client_ptr->hash_code) + 2;
+                        char commit_entry[commit_entry_size];
+                        sprintf(commit_entry, "%c %d %s %s\n", 'A', updated_client_ptr->version, updated_client_ptr->file_path, updated_client_ptr->hash_code);
+                        commit_entry[commit_entry_size] = '\0';
+                        printf("[commit_entry] %s", commit_entry);
+                        better_write(fd_commit, commit_entry, strlen(commit_entry), __FILE__, __LINE__);
+                }
+
+                client_ptr = client_ptr->next;
+                updated_client_ptr = updated_client_ptr->next;
+        }
+
+        /* iterate server manifest and figure out which files are missing from the other */
+        server_ptr = server_manifest->next;
+        while (server_ptr)
+        {
+                char * file_path = server_ptr->file_path;
+                client_ptr = client_manifest->next;
+
+                int exists_in_client = 0;
+                while(client_ptr)
+                {
+                        if (strcmp(file_path, client_ptr->file_path) == 0)
+                        {
+                                exists_in_client = 1;
+                                break;
+                        }
+                        client_ptr = client_ptr->next;
+                }
+
+                if (!exists_in_client)
+                {
+                        /* file exists in server manifest, but not in clients, so we need to be remove from the client repository */
+                        int commit_entry_size = 4 + strlen(server_ptr->file_path) + 1 + strlen(server_ptr->hash_code) + 2;
+                        char commit_entry[commit_entry_size];
+                        sprintf(commit_entry, "%c %d %s %s\n", 'D', server_ptr->version, server_ptr->file_path, server_ptr->hash_code);
+                        commit_entry[commit_entry_size] = '\0';
+                        printf("[commit_entry] %s", commit_entry);
+                        better_write(fd_commit, commit_entry, strlen(commit_entry), __FILE__, __LINE__);
+                }
+
+                server_ptr = server_ptr->next;
+        }
+
+        close(fd_commit);
+        free_manifest(server_manifest);
+        free_manifest(client_manifest);
+        free_manifest(updated_client_manifest);
         return 0;
 }

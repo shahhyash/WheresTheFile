@@ -54,5 +54,9 @@ int _upgrade(char * proj_name);
  *      Returns 0 on success, 1 otherwise.
  */
 int current_version(char * proj_name);
+/*
+ *      Creates a .commit file to keep track of all changes on client's copy of project
+ */
+int _commit(char * proj_name);
 
 #endif
