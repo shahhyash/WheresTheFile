@@ -283,7 +283,6 @@ int _add(char * proj_name, char * filename)
                 fprintf(stderr, "[_add] Error opening %s. FILE: %s. LINE: %d.\n", manifest, __FILE__, __LINE__);
                 return 1;
         }
-        char * ver_str = "1";   // Version 1 since just added
         char hex_hash[SHA256_DIGEST_LENGTH*2+1];
         bzero(hex_hash, SHA256_DIGEST_LENGTH*2+1);
         int j;
@@ -667,8 +666,8 @@ char * fetch_server_copy(int sd, char * file_name)
         newline = strstr(&newline[2], "\n");
         newline = strstr(&newline[1], "\n");
         // printf("newline %s\n", newline);
-        free(decompressed);
         strncpy(file, &newline[1], size);
+        free(decompressed);
         return file;
 }
 
