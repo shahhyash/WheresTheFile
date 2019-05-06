@@ -52,4 +52,9 @@ int get_version(char * proj_name, char * filename, int * is_dif_ver);
  *      Returns hash of data.
  */
 char * hash(char * data);
+/*
+ *      Increments manifest version by one.
+ *      Returns 0 on success, 1 otherwise.
+ */
+int update_manifest_version(char * proj_name, int version);
 #endif

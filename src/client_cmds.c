@@ -336,6 +336,7 @@ int _remove(char * proj_name, char * filename)
         char buf[size+1];
         if (better_read(fd, buf, size, __FILE__, __LINE__) != 1)
                 return 1;
+        close(fd);
         buf[size]='\0'; /* add string termination so that substring search doesn't look further than end of file */
         // printf("pj: %s\nbuf: %s\n", name, buf);
         char * line = strstr(buf, name);
@@ -355,7 +356,6 @@ int _remove(char * proj_name, char * filename)
                 i++;
         end = i+1;
         // printf("%d\n", num_bytes);
-        close(fd);
         int fd1 = open(pj, O_RDWR | O_TRUNC, 00600);
         if (fd1 == -1)
         {
@@ -748,7 +748,7 @@ int _upgrade(char * proj_name)
         }
         update_entry * update_ptr = updates;
 
-        while (update_ptr)
+        while (update_ptr != NULL)
         {
                 if (update_ptr->code == 'M')
                 {
@@ -781,7 +781,14 @@ int _upgrade(char * proj_name)
                                 return 1;
                         }
                         char * f_name = strstr(update_ptr->file_path, "/");
-                        _add(proj_name, &f_name[1]);
+                        if (_add(proj_name, &f_name[1]) == 1)
+                        {
+                                fprintf(stderr, "[Upgrade] Adding to manifest returned error. FILE %s LINE %d\n", __FILE__, __LINE__);
+                                /* free allocated resources */
+                                free_manifest(server_manifest);
+                                free_updates(updates);
+                                return 1;
+                        }
 
                         close(fd);
                         free(file_contents);
@@ -816,7 +823,14 @@ int _upgrade(char * proj_name)
                                 return 1;
                         }
                         char * f_name = strstr(update_ptr->file_path, "/");
-                        _add(proj_name, &f_name[1]);
+                        if (_add(proj_name, &f_name[1]) == 1)
+                        {
+                                fprintf(stderr, "[Upgrade] Adding to manifest returned error. FILE %s LINE %d\n", __FILE__, __LINE__);
+                                /* free allocated resources */
+                                free_manifest(server_manifest);
+                                free_updates(updates);
+                                return 1;
+                        }
                         close(fd);
                         free(file_contents);
                 }
@@ -834,6 +848,7 @@ int _upgrade(char * proj_name)
                 update_ptr = update_ptr->next;
         }
 
+        int version = server_manifest->version;
         /* free allocated resources */
         free_manifest(server_manifest);
         free_updates(updates);
@@ -842,8 +857,7 @@ int _upgrade(char * proj_name)
         char update_path[strlen("/.Update" + strlen(proj_name) + 1)];
         sprintf(update_path, "%s/.Update", proj_name);
         remove(update_path);
-
-        return 0;
+        return update_manifest_version(proj_name, version);
 }
 /*
  *      Requests server manifest and outputs a list of all files under the project name along with their version numbers

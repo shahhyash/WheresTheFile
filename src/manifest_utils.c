@@ -368,3 +368,38 @@ char * hash(char * data)
         }
         return hex_hash;
 }
+/*
+ *      Increments manifest version by one.
+ *      Returns 0 on success, 1 otherwise.
+ */
+int update_manifest_version(char * proj_name, int version)
+{
+        char man_name[strlen(proj_name)+strlen("/.manifest")+1];
+        bzero(man_name, strlen(proj_name)+strlen("/.manifest")+1);
+        sprintf(man_name, "%s/.manifest", proj_name);
+        int fd = open(man_name, O_RDONLY, 00600);
+        if (fd == -1)
+        {
+                fprintf(stderr, "[update_manifest_version] Error opening %s FILE: %s LINE: %d\n", man_name, __FILE__, __LINE__);
+                return 1;
+        }
+        int size = lseek(fd, 0, SEEK_END);
+        lseek(fd, 0, SEEK_SET);
+        char buf[size+1];
+        bzero(buf, size+1);
+        if (better_read(fd, buf, size, __FILE__, __LINE__) != 1)
+                return 1;
+        close(fd);
+        int i = 0;
+        while (buf[i++] != '\n');
+        char num_buf[128];
+        bzero(num_buf, 128);
+        sprintf(num_buf, "%d\n", version);
+        int fd1 = open(man_name, O_RDWR | O_TRUNC, 00600);
+        if (better_write(fd1, num_buf, strlen(num_buf), __FILE__, __LINE__) != 1)
+                return 1;
+        if (better_write(fd1, &buf[i], strlen(&buf[i]), __FILE__, __LINE__) != 1)
+                return 1;
+        close(fd1);
+        return 0;
+}
