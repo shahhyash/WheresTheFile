@@ -42,5 +42,14 @@ update_entry * fetch_updates (char * proj_name);
 
 /* frees all allocated memory for update list */
 void free_updates(update_entry * root);
-
+/*
+ *      Returns the version number of the filename in the manifest.
+ *      If the filename==proj_name, returns manifest version.
+ *      Returns -1 on error.
+ */
+int get_version(char * proj_name, char * filename, int * is_dif_ver);
+/*
+ *      Returns hash of data.
+ */
+char * hash(char * data);
 #endif

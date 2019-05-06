@@ -10,6 +10,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <openssl/sha.h>        // Hash function
+#include "flags.h"
 
 manifest_entry * read_manifest_file(char * file_contents)
 {
@@ -109,29 +110,7 @@ void update_hashes(manifest_entry * root)
             close(fd);
 
             /* compute new hash code */
-            unsigned char hash[SHA256_DIGEST_LENGTH];
-            bzero(hash, SHA256_DIGEST_LENGTH);
-            SHA256((const unsigned char * ) file_contents, file_length, (unsigned char *) hash);
-            char hex_hash[SHA256_DIGEST_LENGTH*2+1];
-            bzero(hex_hash, SHA256_DIGEST_LENGTH*2+1);
-            int j;
-            for (j = 0; j < SHA256_DIGEST_LENGTH; j++)
-            {
-                    char hex[3] = {0,0,0};
-                    sprintf(hex, "%x", (int)hash[j]);
-                    if (strlen(hex) == 1)
-                    {
-                            hex_hash[2*j] = '0';
-                            hex_hash[2*j+1] = hex[0];
-                    }
-                    else
-                    {
-                            hex_hash[2*j] = hex[0];
-                            hex_hash[2*j+1] = hex[1];
-                    }
-            }
-            char * new_hash = malloc(sizeof(char) * (strlen(hex_hash)+1));
-            strcpy(new_hash, hex_hash);
+            char * new_hash = hash(file_contents);
             if (strcmp(old_hash, new_hash) == 0)
             {
                 /* hashes are the same, don't do anything */
@@ -291,4 +270,101 @@ void free_updates(update_entry * root)
         free(root);
         root = next;
     }
+}
+/*
+ *      Returns the version number of the filename in the manifest.
+ *      If the filename==proj_name, returns manifest version.
+ *      Returns -1 on error.
+ */
+int get_version(char * proj_name, char * filename, int * is_dif_ver)
+{
+        *is_dif_ver = FALSE;
+        char man_name[strlen(proj_name)+strlen(filename)+2];
+        bzero(man_name, strlen(proj_name)+strlen(filename)+2);
+        sprintf(man_name, "%s/%s", proj_name, filename);
+        // Open manifest
+        char manifest_path[strlen("/.manifest") + strlen(proj_name)];
+        sprintf(manifest_path, "%s/.manifest", proj_name);
+        int fd = open(manifest_path, O_RDONLY, 00600);
+        if (fd == -1)
+                return -1;
+        int size = lseek(fd, 0, SEEK_END);
+        lseek(fd, 0, SEEK_SET);
+        if (size < 2)
+        {
+                fprintf(stderr, "[get_version] Invalid .manifest.");
+                return -1;
+        }
+        char buf[size+1];
+        bzero(buf, size+1);
+        if (better_read(fd, buf, size, __FILE__, __LINE__) != 1)
+                return -1;
+        close(fd);
+        // Get manifest version
+        char * token = strtok(buf, "\n");
+        int version;
+        sscanf(token, "%d", &version);
+        if (strcmp(proj_name, filename) == 0)
+        // Return manifest version
+        {
+                return version;
+        }
+        token = strtok(NULL, "\n");
+        while (token != NULL)
+        // Return file version in manifest
+        {
+                char * subtoken = strtok_r(token, " ", &token);
+                sscanf(subtoken, "%d", &version);
+                subtoken = strtok_r(token, " ", &token);
+                if (strcmp(subtoken, man_name) == 0)
+                {
+                        // Compare hash codes
+                        int f = open(man_name, O_RDONLY, 00600);
+                        if (f == -1)
+                                return -1;
+                        int sze = lseek(fd, 0, SEEK_END);
+                        lseek(fd, 0, SEEK_SET);
+                        char file[sze+1];
+                        bzero(file, sze+1);
+                        if (better_read(f, file, sze, __FILE__, __LINE__) != 1)
+                                return -1;
+                        char * hashcode = hash(file);
+                        subtoken = strtok_r(token, " ", &token);
+                        if (strcmp(subtoken, hashcode) != 0)
+                                *is_dif_ver = TRUE;
+                        free(hashcode);
+                        return version;
+                }
+                token = strtok(NULL, "\n");
+        }
+        // Not found
+        return 0;
+
+}
+/*
+ *      Returns hash of data.
+ */
+char * hash(char * data)
+{
+        unsigned char hash[SHA256_DIGEST_LENGTH];
+        SHA256((const unsigned char *) data, strlen(data), hash);
+        char * hex_hash = (char *) malloc(sizeof(char)*(SHA256_DIGEST_LENGTH*2+1));
+        bzero(hex_hash, SHA256_DIGEST_LENGTH*2+1);
+        int j;
+        for (j = 0; j < SHA256_DIGEST_LENGTH; j++)
+        {
+                char hex[3] = {0,0,0};
+                sprintf(hex, "%x", (int)hash[j]);
+                if (strlen(hex) == 1)
+                {
+                        hex_hash[2*j] = '0';
+                        hex_hash[2*j+1] = hex[0];
+                }
+                else
+                {
+                        hex_hash[2*j] = hex[0];
+                        hex_hash[2*j+1] = hex[1];
+                }
+        }
+        return hex_hash;
 }
