@@ -1132,6 +1132,7 @@ int _history(char * proj_name)
         history = strstr(&history[1], "\n");
         history = strstr(&history[1], "\n");
         printf("%s\n", &history[1]);
+        free(decompressed);
         return 0;
 }
 /*
@@ -1157,7 +1158,7 @@ int _push(char * proj_name)
 
         /* fetch local .commit file */
         char * commit_contents = fetch_commit_file(proj_name, FALSE, 0);
-        printf("%s\n", commit_contents);
+        // printf("%s\n", commit_contents);
         if(commit_contents == NULL)
         {
                 fprintf(stderr, "[push] Error fetching commit file. Please run commit before running push\n");
@@ -1179,6 +1180,7 @@ int _push(char * proj_name)
                 fprintf(stderr, "[_commit] Error fetching manifest. FILE %s. LINE: %d.\n", __FILE__, __LINE__);
                 return 1;
         }
+
         close(s);
         free(manifest_contents);
         int sd = init_socket();
@@ -1197,8 +1199,12 @@ int _push(char * proj_name)
                 return 1;
         }
 
-
         char buffer[31] = {0};
+        printf("-->Sent message successfully.\n");
+        if (better_read( s , buffer, 30, __FILE__, __LINE__) != 1)
+                return 1;
+        printf("Message from server:\t%s\n", buffer);
+        bzero(buffer, 31);
         printf("-->Sent message successfully.\n");
         if (better_read( sd , buffer, 30, __FILE__, __LINE__) != 1)
                 return 1;
