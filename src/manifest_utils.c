@@ -60,7 +60,7 @@ manifest_entry * read_manifest_file(char * file_contents)
                     ptr->version = version;
                     ptr->file_path = file_path;
                     ptr->hash_code = hash_code;
-                    printf("new hash: %s\n", hash_code);
+                    // printf("new hash: %s\n", hash_code);
                     ptr->next = NULL;
             }
 

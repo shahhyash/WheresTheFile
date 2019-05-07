@@ -96,7 +96,7 @@ char * recursive_zip(char * _filename, int is_server)
                 strcpy(filename, &_filename[strlen(".server_repo/")]);
         else
                 strcpy(filename, &_filename[0]);
-        printf("%s %s\n", filename, _filename);
+        // printf("%s %s\n", filename, _filename);
         if (dir_exists(_filename))
         // Open directory and concat all files
         {
@@ -183,7 +183,7 @@ void recursive_unzip(char * zip_buf, int is_server)
                 char _nameBuf[1024];
                 bzero(_nameBuf, 1024);
                 sscanf(&zip_buf[i], "%s\n", _nameBuf);
-                printf("%s\n", _nameBuf);
+                // printf("%s\n", _nameBuf);
                 char nameBuf[1024];
                 bzero(nameBuf, 1024);
                 if (is_server)
@@ -191,7 +191,7 @@ void recursive_unzip(char * zip_buf, int is_server)
                         // strncpy(_nameBuf, ".server_repo/", 13);
                         // sscanf(&_nameBuf[13], "%s\n", nameBuf);
                         sprintf(nameBuf, ".server_repo/%s", _nameBuf);
-                        printf("%s end\n", nameBuf);
+                        // printf("%s end\n", nameBuf);
                 }
                 else
                 {
@@ -201,14 +201,14 @@ void recursive_unzip(char * zip_buf, int is_server)
                 // Read type of file: F file OR D directory
                 char type[2] = {0,0};
                 sscanf(&zip_buf[i], "%s\n", type);
-                printf("%s\n", type);
+                // printf("%s\n", type);
                 i += strlen(type)+1;
                 if (*type == 'D')
                 // Directory
                 {
-                        printf("making dir %s", nameBuf);
+                        // printf("making dir %s", nameBuf);
                         make_dir(nameBuf, __FILE__, __LINE__);
-                        printf("%c\n", zip_buf[i]);
+                        // printf("%c\n", zip_buf[i]);
                 }
                 else
                 // File
@@ -216,7 +216,7 @@ void recursive_unzip(char * zip_buf, int is_server)
                         // Read file size
                         char size_str[10] = {0,0,0,0,0,0,0,0,0,0};
                         sscanf(&zip_buf[i], "%s\n", size_str);
-                        printf("size_str: %s\n",size_str);
+                        // printf("size_str: %s\n",size_str);
                         int file_size;
                         sscanf(size_str, "%d", &file_size);
                         i += strlen(size_str)+1;
@@ -225,7 +225,7 @@ void recursive_unzip(char * zip_buf, int is_server)
                         bzero(fileBuf, file_size+1);
                         strncpy(fileBuf, &zip_buf[i], file_size);
                         i += file_size;
-                        printf("contents: %s\n", fileBuf);
+                        // printf("contents: %s\n", fileBuf);
                         int fd = open(nameBuf, O_WRONLY | O_CREAT, 00600);
                         if (better_write(fd, fileBuf, file_size, __FILE__, __LINE__) != 1)
                                 return;

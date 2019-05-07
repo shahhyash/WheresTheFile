@@ -307,7 +307,7 @@ char * receive_file(int sd)
         if (better_read(sd , file , file_size, __FILE__, __LINE__) <= 0)
                 return NULL;
         // decompress file
-        printf("file: %s\n", file);
+        // printf("file: %s\n", file);
         char * decompressed = _decompress(file, d_file_size, file_size);
         return decompressed;
 }
@@ -345,7 +345,7 @@ char * build_file_buffer(char * file_buffer, char * file_path, int size, char op
         buf[buffer_size-2] = '\n';
         buf[buffer_size-1] = '\0';
 
-        printf("buffer:\n%s\n", buf);
+        // printf("buffer:\n%s\n", buf);
 
         return buf;
 }
@@ -418,7 +418,7 @@ int push_changes_to_server(int sd, commit_entry * commits, char * commit_file)
         }
         zipped_buffer[zipped_size-1] = '\0';
 
-        printf("zipped: %s\n", zipped_buffer);
+        // printf("zipped: %s\n", zipped_buffer);
 
         int num_digits = 0;
         i = zipped_size;

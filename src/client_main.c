@@ -122,6 +122,15 @@ int main(int argc, char * argv[])
                 }
                 ret = _push(argv[2]);
         }
+        else if (strcmp(argv[1], "history") == 0)
+        {
+                if (argc != 3)
+                {
+                        fprintf(stderr, "Usage: ./WTF history <project_name>\n");
+                        exit(EXIT_FAILURE);
+                }
+                ret = _history(argv[2]);
+        }
         else
         {
                 int sock = init_socket();

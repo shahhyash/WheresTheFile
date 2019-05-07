@@ -1132,6 +1132,7 @@ int _history(char * proj_name)
         history = strstr(&history[1], "\n");
         history = strstr(&history[1], "\n");
         printf("%s\n", &history[1]);
+        free(decompressed);
         return 0;
 }
 /*
@@ -1157,7 +1158,7 @@ int _push(char * proj_name)
 
         /* fetch local .commit file */
         char * commit_contents = fetch_commit_file(proj_name, FALSE, 0);
-        printf("%s\n", commit_contents);
+        // printf("%s\n", commit_contents);
         if(commit_contents == NULL)
         {
                 fprintf(stderr, "[push] Error fetching commit file. Please run commit before running push\n");

@@ -94,7 +94,7 @@ int create(int sd, char * proj_name)
                 pthread_mutex_unlock(&table_lck);
                 return 1;
         }
-        printf("%s\n", new_proj_name);
+        // printf("%s\n", new_proj_name);
 
         // Init manifest
         char manifest[strlen(new_proj_name)+11];
@@ -267,6 +267,37 @@ int send_server_copy(int sd, char * file_path)
  */
 int history(int sd, char * proj_name)
 {
+        pthread_mutex_t * lock = get_project_lock(proj_name);
+        if (lock == NULL)
+                return 1;
+        else
+        {
+                if (better_send(sd, "Found repository. Sending now.", 30, 0, __FILE__, __LINE__) != 1)
+                        return 1;
+        }
+        while (is_table_lcked)
+                printf("table locked.\n");
+        pthread_mutex_lock(lock);
+
+        /* Mark another thread as accessing */
+        pthread_mutex_lock(&access_lock);
+        num_access++;
+        pthread_mutex_unlock(&access_lock);
+        char hist_file[strlen(proj_name)+strlen(".server_repo/")+strlen("/.history")+1];
+        bzero(hist_file, strlen(proj_name)+strlen(".server_repo/")+strlen("/.history")+1);
+        sprintf(hist_file, ".server_repo/%s/.history", proj_name);
+        if (compress_and_send(sd, hist_file, TRUE))
+        {
+                pthread_mutex_lock(&access_lock);
+                num_access--;
+                pthread_mutex_unlock(&access_lock);
+                pthread_mutex_unlock(lock);
+                return 1;
+        }
+        pthread_mutex_lock(&access_lock);
+        num_access--;
+        pthread_mutex_unlock(&access_lock);
+        pthread_mutex_unlock(lock);
         return 0;
 }
 /*
