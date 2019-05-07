@@ -118,7 +118,7 @@ commit_entry * read_commit_file(char * file_contents)
 
 void free_commit_list(commit_entry * root)
 {
-        free(root->file_path);
-        free(root->hash_code);
-        free(root);
+                free(root->file_path);
+                free(root->hash_code);
+                free(root);
 }

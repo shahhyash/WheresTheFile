@@ -416,7 +416,7 @@ int push_handler(int sd, char * proj_name)
         client_commit = &client_commit[1];
         printf("commit file: %s\n", client_commit);
         // Read into linked list struct
-        commit_entry * cli_cmm = read_commit_file(client_commit);
+        char * hash_cli = hash(client_commit);
         free(_client_commit);
         int num_commits = get_commit_count(proj_name);
         int cur_commit = 1;
@@ -426,19 +426,20 @@ int push_handler(int sd, char * proj_name)
         for (cur_commit = 1; cur_commit <= num_commits; cur_commit++)
         {
                 server_commit = fetch_commit_file(proj_name, TRUE, cur_commit);
-                commit_entry * srvr_cm = read_commit_file(server_commit);
+                char * hash_serv = hash(server_commit);
                 free(server_commit);
-                if (strcmp(srvr_cm->hash_code, cli_cmm->hash_code) == 0)
+                if (strcmp(hash_cli, hash_serv) == 0)
                 {
                         found_match = TRUE;
+                        free(hash_serv);
                         break;
                 }
-                free_commit_list(srvr_cm);
+                free(hash_serv);
         }
+        free(hash_cli);
         if (!found_match)
         {
                 fprintf(stderr, "[push] No matching commit found.\n");
-                free_commit_list(cli_cmm);
                 /* Unmark as another thread as accessing */
                 pthread_mutex_lock(&access_lock);
                 num_access--;
@@ -453,8 +454,8 @@ int push_handler(int sd, char * proj_name)
                         char num[128];
                         bzero(num, 128);
                         sprintf(num, "%d", cur_commit);
-                        char old[strlen(proj_name)+strlen(".server_bck")+1+strlen(num)+1];
-                        sprintf(old, ".server_bck/%s%s", proj_name, num);
+                        char old[strlen(proj_name)+strlen(".server_bck")+2+strlen(num)+1];
+                        sprintf(old, ".server_bck/%s/%s", proj_name, num);
                         remove(old);
                 }
         }
@@ -477,14 +478,13 @@ int push_handler(int sd, char * proj_name)
         char cur_version_str[128];
         bzero(cur_version_str, 128);
         sprintf(cur_version_str, "%d", cur_version);
-        char backup[strlen(".server_bck/") + strlen(proj_name)+strlen(cur_version_str)+1];
-        bzero(backup, strlen(".server_bck/") + strlen(proj_name)+strlen(cur_version_str)+1);
-        sprintf(backup, ".server_bck/%s%s", proj_name, cur_version_str);
+        char backup[strlen(".server_bck/") + strlen(proj_name)+strlen(cur_version_str)+2];
+        bzero(backup, strlen(".server_bck/") + strlen(proj_name)+strlen(cur_version_str)+2);
+        sprintf(backup, ".server_bck/%s_%s", proj_name, cur_version_str);
         int fd = open(backup, O_WRONLY | O_CREAT | O_TRUNC, 00600);
         if (better_write(fd, compressed, compressed_size, __FILE__, __LINE__) != 1)
         {
                 free(compressed);
-                free_commit_list(cli_cmm);
                 /* Unmark as another thread as accessing */
                 pthread_mutex_lock(&access_lock);
                 num_access--;
@@ -497,13 +497,25 @@ int push_handler(int sd, char * proj_name)
         // fetch current version of files from client
         remove_dir(project_dir_path);
         char * cur_files = receive_file(sd);
-        printf("files:%s\n Done\n", cur_files);
+        // printf("files:%s\n Done\n", cur_files);
         recursive_unzip(cur_files, TRUE);
         free(cur_files);
-
+        int p_size = strlen(".server_repo/") + strlen(proj_name) + strlen("/.commit")+ 1;
+        char commit_rem[p_size];
+        sprintf(commit_rem, ".server_repo/%s/.commit", proj_name);
+        remove(commit_rem);
+        // Increment manifest
+        int m_size = strlen(".server_repo/") + strlen(proj_name) + strlen("/.manifest")+ 1;
+        char man_f[m_size];
+        sprintf(man_f, ".server_repo/%s/.manifest", proj_name);
+        FILE * man_fd = fopen(man_f, "r");
+        int version;
+        fscanf(man_fd, "%d\n", &version);
+        fclose(man_fd);
+        update_manifest_version(project_dir_path, version+1);
+        // increment manifest number
 
         /* iterate through each file and make sure that these changes are being logged to .histroy */
-        free_commit_list(cli_cmm);
         /* Unmark as another thread as accessing */
         pthread_mutex_lock(&access_lock);
         num_access--;
