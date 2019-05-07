@@ -131,6 +131,15 @@ int main(int argc, char * argv[])
                 }
                 ret = _history(argv[2]);
         }
+        else if (strcmp(argv[1], "rollback") == 0)
+        {
+                if (argc != 4)
+                {
+                        fprintf(stderr, "Usage: ./WTF rollback <project_name> <version>\n");
+                        exit(EXIT_FAILURE);
+                }
+                ret = _rollback(argv[2], argv[3]);
+        }
         else
         {
                 int sock = init_socket();

@@ -936,6 +936,8 @@ int _commit(char * proj_name)
         if (client_manifest->version != server_manifest->version)
         {
                 fprintf(stderr, "ERROR: Server has a newer copy than your current version. Run update to checkout these changes before you run commit.\n");
+                free_manifest(server_manifest);
+                free_manifest(client_manifest);
                 return 1;
         }
 
@@ -1084,19 +1086,34 @@ int _rollback(char * proj_name, char * version)
         {
                 if (!isdigit(version[i]))
                 {
-                        fprintf(stderr, "[history] Enter a valid version number.\n");
+                        fprintf(stderr, "[rollback] Enter a valid version number.\n");
                         return 1;
                 }
         }
         int ver = atoi(version);
         if (ver <= 0)
         {
-                fprintf(stderr, "[history] Invalid version entered.\n");
+                fprintf(stderr, "[rollback] Invalid version entered.\n");
                 return 1;
         }
+
         int sd = init_socket();
         if (send_cmd_proj(sd, proj_name, "rol"))
                 return 1;
+
+        char buf[31];
+        bzero(buf, 31);
+        if (better_read(sd, buf, 30, __FILE__, __LINE__) != 1)
+                return 1;
+        printf("Message received from server: %s\n", buf);
+        if (strcmp(buf, "Error: Project does not exist.") == 0)
+        {
+                fprintf(stderr, "Server returned error.\n");
+                return 1;
+        }
+
+        better_send(sd, (char*) &ver, sizeof(int), 0, __FILE__, __LINE__);
+
         return 0;
 }
 /*
@@ -1211,7 +1228,12 @@ int _push(char * proj_name)
         printf("Message from server:\t%s\n", buffer);
         // commit_entry * commits = read_commit_file(commit_contents);
 
-        /* TODO: From here on, we need to compile a list of files that need to be sent to the server and send them out */
+        /* update local manifest version on push */
+        int is_diff_version;
+        int curr_Version = get_version(proj_name, proj_name, &is_diff_version);
+        update_manifest_version(proj_name, ++curr_Version);
+
+        remove(commit_file);
 
         return 0;
 }
