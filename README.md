@@ -76,7 +76,7 @@ Our client and server each respectively print messages to their terminal
 We read the file manifest into a struct to only read a manifest once during our implementation. We also only send over modified files in a compressed buffer during push.
 
 ## General Implementation Notes
-Our client commands are implemented as detailed in the project guide.
+Our client commands are implemented as detailed in the project guide. (Note: We start our manifest at version=2 for our configuration checking.)
 
 We detail the structure and modularity of our .c files below:
 - client_cmds: Contains functions to execute the client commands as well as setup communication with the server.
