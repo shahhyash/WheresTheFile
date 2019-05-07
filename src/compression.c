@@ -185,16 +185,19 @@ void recursive_unzip(char * zip_buf, int is_server)
                 sscanf(&zip_buf[i], "%s\n", _nameBuf);
                 printf("%s\n", _nameBuf);
                 char nameBuf[1024];
+                bzero(nameBuf, 1024);
                 if (is_server)
                 {
-                        bzero(nameBuf, 1024);
-                        sprintf(nameBuf, ".server_repo/%s", nameBuf);
+                        // strncpy(_nameBuf, ".server_repo/", 13);
+                        // sscanf(&_nameBuf[13], "%s\n", nameBuf);
+                        sprintf(nameBuf, ".server_repo/%s", _nameBuf);
+                        printf("%s end\n", nameBuf);
                 }
                 else
                 {
                         strcpy(nameBuf, _nameBuf);
                 }
-                i += strlen(nameBuf)+1;
+                i += strlen(_nameBuf)+1;
                 // Read type of file: F file OR D directory
                 char type[2] = {0,0};
                 sscanf(&zip_buf[i], "%s\n", type);

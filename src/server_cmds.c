@@ -497,8 +497,8 @@ int push_handler(int sd, char * proj_name)
         // fetch current version of files from client
         remove_dir(project_dir_path);
         char * cur_files = receive_file(sd);
-        printf("%s\n", cur_files);
-        // recursive_unzip(cur_files, TRUE);
+        printf("files:%s\n Done\n", cur_files);
+        recursive_unzip(cur_files, TRUE);
         free(cur_files);
 
 
