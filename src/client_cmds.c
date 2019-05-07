@@ -222,7 +222,7 @@ int create_or_destroy(char * proj_name, int create)
                         free(file);
                         return 1;
                 }
-                if (better_write(fd_man, "0\n", 2, __FILE__, __LINE__) != 1)
+                if (better_write(fd_man, file, strlen(file), __FILE__, __LINE__) != 1)
                 {
                         free(file);
                         return 1;
@@ -933,6 +933,7 @@ int _commit(char * proj_name)
         free(manifest_contents);
 
         /* compare server and client manifest versions */
+        printf("%d vs %d", client_manifest->version, server_manifest->version);
         if (client_manifest->version != server_manifest->version)
         {
                 fprintf(stderr, "ERROR: Server has a newer copy than your current version. Run update to checkout these changes before you run commit.\n");

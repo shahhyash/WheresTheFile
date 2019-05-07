@@ -62,7 +62,7 @@ int create(int sd, char * proj_name)
                 return 1;
         printf("Seeing is table is locked...\n");
         pthread_mutex_lock(&table_lck);
-        printf("Table is unlocked.");
+        printf("Table is unlocked.\n");
         is_table_lcked = TRUE;
         pthread_mutex_t * lock = add_project(proj_name, __FILE__, __LINE__);
         if (lock == NULL)
@@ -101,7 +101,8 @@ int create(int sd, char * proj_name)
         bzero(manifest, strlen(new_proj_name)+11);
         sprintf(manifest, "%s/.manifest", new_proj_name);
         int fd = open(manifest, O_WRONLY | O_CREAT | O_TRUNC, 00600);
-        if (better_write(fd, "1\n", 2, __FILE__, __LINE__) <= 0)
+        char * data = "2\n";
+        if (better_write(fd, data, strlen(data), __FILE__, __LINE__) <= 0)
         {
                 fprintf(stderr, "[create] Error returned by better_write. FILE: %s. LINE: %d\n", __FILE__, __LINE__);
                 close(fd);
@@ -200,7 +201,7 @@ int send_manifest(int sd, char * proj_name)
         bzero(file_name, strlen(proj_name)+1+strlen(".server_repo/")+strlen("/.manifest"));
         // Read and compress manifest
         sprintf(file_name, ".server_repo/%s/.manifest", proj_name);
-
+        printf("Sending %s\n", file_name);
         int ret = compress_and_send(sd, file_name, TRUE);
 
         pthread_mutex_lock(&access_lock);
@@ -323,7 +324,7 @@ int rollback(int sd, char * proj_name)
         pthread_mutex_lock(&access_lock);
         num_access++;
         pthread_mutex_unlock(&access_lock);
-        
+
         int ret = 0;
         int rollback_version;
         if(better_read(sd, (char*) &rollback_version, sizeof(int), __FILE__, __LINE__))
@@ -380,7 +381,7 @@ int rollback(int sd, char * proj_name)
 
                         /* backupexists! let's revert it now */
                         int fd = open(backup, O_RDWR, 00600);
-                        
+
                         // int length = fseek(fd, 0, SEEK_END);
                         // fseek(fd, 0, SEEK_SET);
 
