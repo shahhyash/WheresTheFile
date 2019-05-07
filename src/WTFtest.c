@@ -8,6 +8,8 @@
 #include <signal.h>
 #include "fileIO.h"
 
+#define FALSE 0
+
 /*
  *      Runs argv_list command in a seperate fork and execs on it.
  */
@@ -19,7 +21,6 @@ int fork_and_exec(char * argv_list[], int dynamic)
         pid = fork();
         if (pid == -1)
         {
-
                 // pid == -1 means error occured
                 printf("can't fork, error occured\n");
                 return 1;
@@ -28,24 +29,13 @@ int fork_and_exec(char * argv_list[], int dynamic)
         {
 
                 // the execv() only return if error occured.
-                // The return value is -1
                 execv(argv_list[0],argv_list);
                 exit(0);
         }
         else
         {
-                // a positive number is returned for the pid of
-                // parent process
-                // getppid() returns process id of parent of
-                // calling process
                 printf("parent process, pid = %u\n",getppid());
 
-                // the parent process calls waitpid() on the child
-                // waitpid() system call suspends execution of
-                // calling process until a child specified by pid
-                // argument has changed state
-                // see wait() man page for all the flags or options
-                // used here
                 if (waitpid(pid, &status, 0) > 0)
                 {
 
@@ -97,7 +87,7 @@ int fork_and_exec(char * argv_list[], int dynamic)
  */
 pid_t init_server(int * port)
 {
-        *port = 9000;
+        *port = 11000;
         char port_str[10];
         bzero(port_str, 10);
         sprintf(port_str, "%d", *port);
@@ -153,95 +143,122 @@ int main()
                         fprintf(stderr, "Kill failed.\n");
                 return 1;
         }
-        FILE * cmds = fopen(".test_commands", "r");
-        if (cmds == NULL)
-                return 1;
-        // First line is number of test cases
-        int num_testcases;
-        fscanf(cmds, "%d\n", &num_testcases);
-        int i;
-        for (i = 0; i < num_testcases; i++)
-        {
-                int num_cmds;
-                // Read number of commands
-                fscanf(cmds, "%d\n", &num_cmds);
-                int j;
-                for (j = 0; j < num_cmds; j++)
-                {
-                        // Read command
-                        char cmd[100];
-                        bzero(cmd, 100);
-                        int cur = 0;
-                        do {
-                                cmd[cur++] = fgetc(cmds);
-                        } while (cmd[cur-1] != '\n');
-                        cmd[cur-1] = '\0';
-                        printf("%s\n", cmd);
+        char * file = "test test test test \n rtestest safneiapf [aodinvo[aien afidas[fn ]]]\n \t seoisanefnoias teoisanfhoianfpoia soiEJFMopiasem";
+        char * argv_list[] = {"bin/WTF", "configure", "127.0.0.1", "11000", NULL};
+        fork_and_exec(argv_list, FALSE);
+        char * argv_list1[] = {"bin/WTF", "create", "example", NULL};
+        fork_and_exec(argv_list1, FALSE);
+        FILE * f = fopen("example/first", "w+");
+        fwrite(file, strlen(file), 1, f);
+        fclose(f);
+        char * argv_list2[] = {"bin/WTF", "add", "example", "first", NULL};
+        fork_and_exec(argv_list2, FALSE);
+        char * argv_list3[] = {"bin/WTF", "commit", "example", NULL};
+        fork_and_exec(argv_list3, FALSE);
+        char * argv_list4[] = {"bin/WTF", "push", "example", NULL};
+        fork_and_exec(argv_list4, FALSE);
+        remove_dir("example");
+        char * argv_list5[] = {"bin/WTF", "checkout", "example", NULL};
+        fork_and_exec(argv_list5, FALSE);
+        char * argv_list6[] = {"bin/WTF", "update", "example", NULL};
+        fork_and_exec(argv_list6, FALSE);
+        char * argv_list7[] = {"bin/WTF", "upgrade", "example", NULL};
+        fork_and_exec(argv_list7, FALSE);
+        char * argv_list9[] = {"bin/WTF", "create", "another", NULL};
+        fork_and_exec(argv_list9, FALSE);
+        remove_dir("example");
+        remove_dir("another");
 
-                        // Process cmd into list of cmds
-                        // count spaces
-                        int num_spaces = 0;
-                        int k;
-                        for (k = 0; k < strlen(cmd); k++)
-                        {
-                                if (cmd[k] == ' ')
-                                        num_spaces++;
-                        }
-                        char * argv_list[num_spaces+2];
-                        int start = 0;
-                        int cur_arg = 0;
-                        for (k = 0; k < strlen(cmd); k++)
-                        {
-                                if (cmd[k] == ' ')
-                                {
-                                        char * arg = (char *) malloc(sizeof(char)*(k-start+1));
-                                        strncpy(arg, &cmd[start], k-start);
-                                        arg[k-start] = '\0';
-                                        argv_list[cur_arg++] = arg;
-                                        start = k + 1;
-                                }
-                        }
-                        char * arg = (char *) malloc(sizeof(char)*(strlen(cmd)-start+1));
-                        strncpy(arg, &cmd[start], strlen(cmd)-start);
-                        arg[strlen(cmd)-start] = '\0';
-                        argv_list[cur_arg++] = arg;
-                        start = k + 1;
-                        argv_list[num_spaces+1] = NULL;
 
-                        if (strncmp(cmd, "rm -rf", 6)==0)
-                        {
-                                remove_dir(argv_list[2]);
-                                int argc = 0;
-                                while (argv_list[argc] != NULL)
-                                {
-                                        free(argv_list[argc++]);
-                                }
-                        }
-                        else if (strncmp(cmd, "make", 4) == 0)
-                        {
-                                FILE * new = fopen(argv_list[1], "w+");
-                                fwrite(file_ex, 1, strlen(file_ex), new);
-                                fclose(new);
-                                int argc = 0;
-                                while (argv_list[argc] != NULL)
-                                {
-                                        free(argv_list[argc++]);
-                                }
-                        }
-                        else
-                        {
-                                if (fork_and_exec(argv_list, 1) != 0)
-                                {
-                                        fclose(cmds);
-                                        if (kill(server_pid, SIGINT) != 0)
-                                                fprintf(stderr, "Kill failed.\n");
-                                        exit(EXIT_FAILURE);
-                                }
-
-                        }
-                }
-        }
-        fclose(cmds);
+        // FILE * cmds = fopen(".test_commands", "r");
+        // if (cmds == NULL)
+        //         return 1;
+        // // First line is number of test cases
+        // int num_testcases;
+        // fscanf(cmds, "%d\n", &num_testcases);
+        // int i;
+        // for (i = 0; i < num_testcases; i++)
+        // {
+        //         int num_cmds;
+        //         // Read number of commands
+        //         fscanf(cmds, "%d\n", &num_cmds);
+        //         int j;
+        //         for (j = 0; j < num_cmds; j++)
+        //         {
+        //                 // Read command
+        //                 char cmd[100];
+        //                 bzero(cmd, 100);
+        //                 int cur = 0;
+        //                 do {
+        //                         cmd[cur++] = fgetc(cmds);
+        //                 } while (cmd[cur-1] != '\n');
+        //                 cmd[cur-1] = '\0';
+        //                 printf("%s\n", cmd);
+        //
+        //                 // Process cmd into list of cmds
+        //                 // count spaces
+        //                 int num_spaces = 0;
+        //                 int k;
+        //                 for (k = 0; k < strlen(cmd); k++)
+        //                 {
+        //                         if (cmd[k] == ' ')
+        //                                 num_spaces++;
+        //                 }
+        //                 char * argv_list[num_spaces+2];
+        //                 int start = 0;
+        //                 int cur_arg = 0;
+        //                 for (k = 0; k < strlen(cmd); k++)
+        //                 {
+        //                         if (cmd[k] == ' ')
+        //                         {
+        //                                 char * arg = (char *) malloc(sizeof(char)*(k-start+1));
+        //                                 strncpy(arg, &cmd[start], k-start);
+        //                                 arg[k-start] = '\0';
+        //                                 argv_list[cur_arg++] = arg;
+        //                                 start = k + 1;
+        //                         }
+        //                 }
+        //                 char * arg = (char *) malloc(sizeof(char)*(strlen(cmd)-start+1));
+        //                 strncpy(arg, &cmd[start], strlen(cmd)-start);
+        //                 arg[strlen(cmd)-start] = '\0';
+        //                 argv_list[cur_arg++] = arg;
+        //                 start = k + 1;
+        //                 argv_list[num_spaces+1] = NULL;
+        //
+        //                 if (strncmp(cmd, "rm -rf", 6)==0)
+        //                 {
+        //                         remove_dir(argv_list[2]);
+        //                         int argc = 0;
+        //                         while (argv_list[argc] != NULL)
+        //                         {
+        //                                 free(argv_list[argc++]);
+        //                         }
+        //                 }
+        //                 else if (strncmp(cmd, "make", 4) == 0)
+        //                 {
+        //                         FILE * new = fopen(argv_list[1], "w+");
+        //                         fwrite(file_ex, 1, strlen(file_ex), new);
+        //                         fclose(new);
+        //                         int argc = 0;
+        //                         while (argv_list[argc] != NULL)
+        //                         {
+        //                                 free(argv_list[argc++]);
+        //                         }
+        //                 }
+        //                 else
+        //                 {
+        //                         if (fork_and_exec(argv_list, 1) != 0)
+        //                         {
+        //                                 fclose(cmds);
+        //                                 if (kill(server_pid, SIGINT) != 0)
+        //                                         fprintf(stderr, "Kill failed.\n");
+        //                                 exit(EXIT_FAILURE);
+        //                         }
+        //
+        //                 }
+        //         }
+        // }
+        // fclose(cmds);
         if (kill(server_pid, SIGINT) != 0)
                 fprintf(stderr, "Kill failed.\n");
 

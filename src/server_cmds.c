@@ -121,7 +121,6 @@ int create(int sd, char * proj_name)
         is_table_lcked = FALSE;
         pthread_mutex_unlock(&table_lck);
         return send_manifest(sd, proj_name);
-        return 0;
 }
 
 /*

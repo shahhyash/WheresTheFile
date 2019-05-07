@@ -193,20 +193,20 @@ int create_or_destroy(char * proj_name, int create)
                         return 1;
                 }
 
-                printf("decompressed %s\n", decompressed);
+                // printf("decompressed %s\n", decompressed);
                 char * newline = strstr(decompressed, "\n");
                 int size;
                 sscanf(&newline[2], "%d\n", &size);
-                printf("size %d\n", size);
+                // printf("size %d\n", size);
                 char * file = (char *) malloc(sizeof(char)*(size+1));
                 bzero(file, size+1);
                 int i = 3;
                 while (newline[i++] != '\n');
                 strncpy(file, &newline[i], size);
-                printf("file %s\n", file);
+                // printf("file %s\n", file);
                 free(decompressed);
 
-                printf("%s\n", proj_name);
+                // printf("%s\n", proj_name);
                 if (make_dir(proj_name, __FILE__, __LINE__) != 0)
                 {
                         free(file);
@@ -222,7 +222,7 @@ int create_or_destroy(char * proj_name, int create)
                         free(file);
                         return 1;
                 }
-                if (better_write(fd_man, file, strlen(file), __FILE__, __LINE__) != 1)
+                if (better_write(fd_man, "0\n", 2, __FILE__, __LINE__) != 1)
                 {
                         free(file);
                         return 1;

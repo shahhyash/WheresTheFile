@@ -187,6 +187,7 @@ void remove_dir(char * dir)
 int compress_and_send(int sd, char * name, int is_server)
 {
         char * zipped = recursive_zip(name, is_server);
+        // printf("zipped %s\n", zipped);
         int zipped_size = strlen(zipped);
         int num_digits = 0;
         int i = zipped_size;
