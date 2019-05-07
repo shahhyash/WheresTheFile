@@ -306,7 +306,111 @@ int history(int sd, char * proj_name)
  */
 int rollback(int sd, char * proj_name)
 {
-        return 0;
+        if (dir_exists(".server_repo") == 0)
+                return 1;
+        pthread_mutex_t * lock = get_project_lock(proj_name);
+        if (lock == NULL)
+                return 1;
+        else
+        {
+                if (better_send(sd, "Found repository. Version Num?", 30, 0, __FILE__, __LINE__) != 1)
+                        return 1;
+        }
+        while (is_table_lcked)
+                printf("table locked.\n");
+        pthread_mutex_lock(lock);
+
+        /* Mark another thread as accessing */
+        pthread_mutex_lock(&access_lock);
+        num_access++;
+        pthread_mutex_unlock(&access_lock);
+        
+        int ret = 0;
+        int rollback_version;
+        if(better_read(sd, (char*) &rollback_version, sizeof(int), __FILE__, __LINE__))
+        {
+                fprintf(stderr, "[rollback] ERROR: Unable to read rollback version from client.\n");
+                ret = 1;
+        }
+
+        int is_diff_version;
+        int current_version = get_version(proj_name, proj_name, &is_diff_version);
+
+        if (ret == 0 && !dir_exists(".server_bck"))
+        {
+                fprintf(stderr, "[rollback] ERROR: Backups directory does not exist on the repository.\n");
+                ret = 1;
+        }
+
+        /* rollback version should be less than current version to be valid */
+        /* commit version should be greater than 1 otherwise there can't be a backup version */
+        if (ret == 0 && current_version > 1 && rollback_version < current_version)
+        {
+                char rollback_version_str[128];
+                bzero(rollback_version_str, 128);
+                sprintf(rollback_version_str, "%d", rollback_version);
+                char backup[strlen(".server_bck/") + strlen(proj_name)+strlen(rollback_version_str)+2];
+                bzero(backup, strlen(".server_bck/") + strlen(proj_name)+strlen(rollback_version_str)+2);
+                sprintf(backup, ".server_bck/%s_%s", proj_name, rollback_version_str);
+
+                if (file_exists(backup))
+                {
+                        /* delete current version */
+                        char project_dir[strlen(".server_repo/") + strlen(proj_name) + 1];
+                        sprintf(project_dir, ".server_repo/%s", proj_name);
+                        remove_dir(project_dir);
+
+                        /* check if there are versions in between */
+                        int difference = current_version - rollback_version;
+                        if (difference > 1)
+                        {
+                                int i;
+                                for(i=0; i<difference; i++)
+                                {
+                                        int version = rollback_version + 1 + i;
+                                        char version_str[128];
+                                        bzero(version_str, 128);
+                                        sprintf(version_str, "%d", version);
+                                        char to_delete[strlen(".server_bck/") + strlen(proj_name)+strlen(version_str)+2];
+                                        bzero(backup, strlen(".server_bck/") + strlen(proj_name)+strlen(version_str)+2);
+                                        sprintf(backup, ".server_bck/%s_%s", proj_name, version_str);
+
+                                        remove(to_delete);
+                                }
+                        }
+
+                        /* backupexists! let's revert it now */
+                        int fd = open(backup, O_RDWR, 00600);
+                        
+                        // int length = fseek(fd, 0, SEEK_END);
+                        // fseek(fd, 0, SEEK_SET);
+
+                        // char compressed[length+1];
+                        // better_read(fd, compressed, length, __FILE__, __LINE__);
+                        // compressed[length] = '\0';
+
+                        char * decompressed = receive_file(fd);
+                        recursive_unzip(decompressed, TRUE);
+
+                        close(fd);
+                        remove(backup);
+                }
+                else
+                {
+                        fprintf(stderr, "[rollback] Backup file %s does not exist on the repo.\n", backup);
+                        ret = 1;
+                }
+        }
+        else
+                ret = 1;
+
+        /* Unmark as another thread as accessing */
+        pthread_mutex_lock(&access_lock);
+        num_access--;
+        pthread_mutex_unlock(&access_lock);
+        pthread_mutex_unlock(lock);
+
+        return ret;
 }
 int receive_commit(int sd, char * proj_name)
 {
@@ -317,7 +421,7 @@ int receive_commit(int sd, char * proj_name)
                 return 1;
         else
         {
-                if (better_send(sd, "Found repository. Sending now.", 30, 0, __FILE__, __LINE__) != 1)
+                if (better_send(sd, "Found repository. Send .commit", 30, 0, __FILE__, __LINE__) != 1)
                         return 1;
         }
         while (is_table_lcked)
@@ -427,7 +531,7 @@ int push_handler(int sd, char * proj_name)
                 return 1;
         else
         {
-                if (better_send(sd, "Found repository. Sending now.", 30, 0, __FILE__, __LINE__) != 1)
+                if (better_send(sd, "Found repo, waiting on files..", 30, 0, __FILE__, __LINE__) != 1)
                         return 1;
         }
         while (is_table_lcked)
