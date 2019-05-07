@@ -414,10 +414,8 @@ int push_handler(int sd, char * proj_name)
         client_commit = strstr(&client_commit[1], "\n");
         client_commit = strstr(&client_commit[1], "\n");
         client_commit = &client_commit[1];
-        printf("commit file: %s\n", client_commit);
         // Read into linked list struct
         char * hash_cli = hash(client_commit);
-        free(_client_commit);
         int num_commits = get_commit_count(proj_name);
         int cur_commit = 1;
         int found_match = FALSE;
@@ -439,12 +437,15 @@ int push_handler(int sd, char * proj_name)
         free(hash_cli);
         if (!found_match)
         {
+
+                free(_client_commit);
                 fprintf(stderr, "[push] No matching commit found.\n");
                 /* Unmark as another thread as accessing */
                 pthread_mutex_lock(&access_lock);
                 num_access--;
                 pthread_mutex_unlock(&access_lock);
                 pthread_mutex_unlock(lock);
+                return 1;
         }
         else
         {
@@ -484,6 +485,8 @@ int push_handler(int sd, char * proj_name)
         int fd = open(backup, O_WRONLY | O_CREAT | O_TRUNC, 00600);
         if (better_write(fd, compressed, compressed_size, __FILE__, __LINE__) != 1)
         {
+
+                free(_client_commit);
                 free(compressed);
                 /* Unmark as another thread as accessing */
                 pthread_mutex_lock(&access_lock);
@@ -509,6 +512,17 @@ int push_handler(int sd, char * proj_name)
         char man_f[m_size];
         sprintf(man_f, ".server_repo/%s/.manifest", proj_name);
         FILE * man_fd = fopen(man_f, "r");
+        if (man_fd == NULL)
+        {
+                free(_client_commit);
+                fclose(man_fd);
+                /* Unmark as another thread as accessing */
+                pthread_mutex_lock(&access_lock);
+                num_access--;
+                pthread_mutex_unlock(&access_lock);
+                pthread_mutex_unlock(lock);
+                return 1;
+        }
         int version;
         fscanf(man_fd, "%d\n", &version);
         fclose(man_fd);
@@ -516,6 +530,40 @@ int push_handler(int sd, char * proj_name)
         // increment manifest number
 
         /* iterate through each file and make sure that these changes are being logged to .histroy */
+        int h_size = strlen(".server_repo/") + strlen(proj_name) + strlen("/.history")+ 1;
+        char his_f[h_size];
+        sprintf(his_f, ".server_repo/%s/.history", proj_name);
+        int hd = open(his_f, O_RDWR | O_CREAT, 00600);
+        lseek(hd, 0, SEEK_END);
+        char num_buf[128];
+        bzero(num_buf, 128);
+        sprintf(num_buf, "%d\n", version);
+        if (better_write(hd, num_buf, strlen(num_buf), __FILE__, __LINE__) != 1)
+        {
+
+                free(_client_commit);
+                close(hd);
+                /* Unmark as another thread as accessing */
+                pthread_mutex_lock(&access_lock);
+                num_access--;
+                pthread_mutex_unlock(&access_lock);
+                pthread_mutex_unlock(lock);
+                return 1;
+        }
+        if (better_write(hd, client_commit, strlen(client_commit), __FILE__, __LINE__) != 1)
+        {
+
+                free(_client_commit);
+                close(hd);
+                /* Unmark as another thread as accessing */
+                pthread_mutex_lock(&access_lock);
+                num_access--;
+                pthread_mutex_unlock(&access_lock);
+                pthread_mutex_unlock(lock);
+                return 1;
+        }
+        free(_client_commit);
+        close(hd);
         /* Unmark as another thread as accessing */
         pthread_mutex_lock(&access_lock);
         num_access--;
