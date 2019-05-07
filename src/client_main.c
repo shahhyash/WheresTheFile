@@ -93,7 +93,7 @@ int main(int argc, char * argv[])
                         fprintf(stderr, "Usage: ./WTF checkout <project_name>\n");
                         exit(EXIT_FAILURE);
                 }
-                ret =  checkout(argv[2]);
+                ret =  _checkout(argv[2]);
         }
         else if (strcmp(argv[1], "currentversion") == 0)
         {
@@ -125,7 +125,7 @@ int main(int argc, char * argv[])
         else
         {
                 int sock = init_socket();
-                
+
                 char *msg = "cre004test";
 
                 char buffer[1024] = {0};

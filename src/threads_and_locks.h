@@ -27,12 +27,12 @@ pthread_mutex_t * add_project(char * proj_name, char * file, int line);
 proj_t * delete_project(char * proj_name);
 /*
  *      Increments number of commited files by searching for project node in list
- *      Returns amount it was incremented to. 
+ *      Returns amount it was incremented to.
  */
 int increment_commit_count(char * proj_name);
 /*
  *      Resets commit count for project proj_name to zero and returns previous value
- */ 
+ */
 int reset_commit_count(char * proj_name);
-
+int get_commit_count(char * proj_name);
 #endif

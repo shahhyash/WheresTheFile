@@ -34,7 +34,7 @@ pthread_mutex_t * get_project_lock(char * proj_name)
 
 /*
  *      Increments number of commited files by searching for project node in list
- *      Returns amount it was incremented to. 
+ *      Returns amount it was incremented to.
  */
 int increment_commit_count(char * proj_name)
 {
@@ -47,7 +47,27 @@ int increment_commit_count(char * proj_name)
                 if (strcmp(ptr->proj_name, proj_name) == 0)
                 {
                         is_table_lcked = FALSE;
-                        ++ptr->num_commits;     
+                        ++ptr->num_commits;
+                        pthread_mutex_unlock(&table_lck);
+                        return ptr->num_commits;
+                }
+                ptr = ptr->next;
+        }
+        is_table_lcked = FALSE;
+        pthread_mutex_unlock(&table_lck);
+        return -1;
+}
+int get_commit_count(char * proj_name)
+{
+        pthread_mutex_lock(&table_lck);
+        is_table_lcked = TRUE;
+        proj_t * ptr = proj_list;
+
+        while (ptr != NULL)
+        {
+                if (strcmp(ptr->proj_name, proj_name) == 0)
+                {
+                        is_table_lcked = FALSE;
                         pthread_mutex_unlock(&table_lck);
                         return ptr->num_commits;
                 }
@@ -60,7 +80,7 @@ int increment_commit_count(char * proj_name)
 
 /*
  *      Resets commit count for project proj_name to zero and returns previous value
- */ 
+ */
 int reset_commit_count(char * proj_name)
 {
         pthread_mutex_lock(&table_lck);
@@ -72,7 +92,7 @@ int reset_commit_count(char * proj_name)
                 if (strcmp(ptr->proj_name, proj_name) == 0)
                 {
                         is_table_lcked = FALSE;
-                        int commit_count = ptr->num_commits;     
+                        int commit_count = ptr->num_commits;
                         ptr->num_commits = 0;
                         pthread_mutex_unlock(&table_lck);
                         return commit_count;

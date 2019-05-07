@@ -39,7 +39,7 @@ int send_cmd_proj(int sock, char * proj_name, char * cmd);
 /*
  *      Clones repository from server. Returns 1 on success; 0 otherwise.
  */
-int checkout(char * proj_name);
+int _checkout(char * proj_name);
 /*
  *      Creates .update file to track any server changes not present in local version
  *      Returns 0 on success, 1 otherwise.

@@ -4,11 +4,11 @@ OUTPUTS=build bin
 FOLDERS=bin build
 
 all: build/server_cmds.o build/client_cmds.o build/manifest_utils.o build/lib.a build/commit_utils.o  build/threads_and_locks.o $(FOLDERS)
-	$(CC) $(CFLAGS) -o bin/WTFserver src/server_main.c build/server_cmds.o build/threads_and_locks.o build/lib.a -lpthread -lz
+	$(CC) $(CFLAGS) -o bin/WTFserver src/server_main.c build/server_cmds.o build/manifest_utils.o build/commit_utils.o build/threads_and_locks.o build/client_cmds.o build/lib.a -lcrypto -lpthread -lz
 	$(CC) $(CFLAGS) -o bin/WTF src/client_main.c build/client_cmds.o build/manifest_utils.o build/commit_utils.o build/lib.a -lssl -lcrypto -lz
 
 test: src/WTFtest.c build/server_cmds.o build/client_cmds.o build/manifest_utils.o build/lib.a  build/fileIO.o build/threads_and_locks.o $(FOLDERS)
-	$(CC) $(CFLAGS) -o bin/WTFserver src/server_main.c build/server_cmds.o build/threads_and_locks.o build/lib.a -lpthread -lz
+	$(CC) $(CFLAGS) -o bin/WTFserver src/server_main.c build/server_cmds.o build/manifest_utils.o build/commit_utils.o build/threads_and_locks.o build/lib.a -lpthread -lz
 	$(CC) $(CFLAGS) -o bin/WTF src/client_main.c build/client_cmds.o build/manifest_utils.o build/lib.a -lssl -lcrypto -lz
 	$(CC) $(CFLAGS) src/WTFtest.c -o bin/WTFtest build/lib.a -lz
 

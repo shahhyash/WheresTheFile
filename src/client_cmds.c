@@ -376,7 +376,7 @@ int _remove(char * proj_name, char * filename)
 /*
  *      Clones repository from server. Returns 0 on success; 1 otherwise.
  */
-int checkout(char * proj_name)
+int _checkout(char * proj_name)
 {
         if (dir_exists(proj_name))
         {
@@ -1155,33 +1155,32 @@ int _push(char * proj_name)
                 return 1;
         }
 
-        /* begin by initializing a connection to the server */
-        int sd = init_socket();
-        if (sd == -1)
-        {
-                fprintf(stderr, "[push] Error connecting to server.");
-                return 1;
-        }
-
-        /* fetch manifest file from server and store in a linked list - if it is unable to fetch from server it might not be a valid project */
-        char * manifest_contents = fetch_server_manifest(sd, proj_name);
-        if (manifest_contents == NULL)
-        {
-                fprintf(stderr, "[push] Error fetching manifest. FILE %s. LINE: %d.\n", __FILE__, __LINE__);
-                return 1;
-        }
-        close(sd);
-        free(manifest_contents);
-
         /* fetch local .commit file */
         char * commit_contents = fetch_commit_file(proj_name, FALSE, 0);
+        printf("%s\n", commit_contents);
         if(commit_contents == NULL)
         {
                 fprintf(stderr, "[push] Error fetching commit file. Please run commit before running push\n");
                 return 1;
         }
-
-        commit_entry * commits = read_commit_file(commit_contents);
+        int sd = init_socket();
+        if (send_cmd_proj(sd, proj_name, "pus"))
+                return 1;
+        char commit_file[strlen(proj_name)+strlen("/.commit")+1];
+        bzero(commit_file, strlen(proj_name)+strlen("/.commit")+1);
+        sprintf(commit_file, "%s/.commit", proj_name);
+        // Send commit file
+        if (compress_and_send(sd, commit_file, FALSE))
+        {
+                return 1;
+        }
+        char buffer[31] = {0};
+        printf("-->Sent message successfully.\n");
+        if (better_read( sd , buffer, 30, __FILE__, __LINE__) != 1)
+                return 1;
+        printf("Message from server:\t%s\n", buffer);
+        exit(0);
+        // commit_entry * commits = read_commit_file(commit_contents);
 
         /* TODO: From here on, we need to compile a list of files that need to be sent to the server and send them out */
 

@@ -8,6 +8,8 @@
 #include "compression.h"
 #include "flags.h"
 #include "threads_and_locks.h"
+#include "manifest_utils.h"
+#include "commit_utils.h"
 
 extern int is_table_lcked;
 extern int num_access;
@@ -387,7 +389,7 @@ int receive_commit(int sd, char * proj_name)
 
 int push_handler(int sd, char * proj_name)
 {
-        if (dir_exists(".server_repo") == 0)
+        if (dir_exists(".server_repo") == FALSE)
                 return 1;
         pthread_mutex_t * lock = get_project_lock(proj_name);
         if (lock == NULL)
@@ -406,9 +408,46 @@ int push_handler(int sd, char * proj_name)
         num_access++;
         pthread_mutex_unlock(&access_lock);
 
+        // Receive client's compress file
+        char * _client_commit = receive_file(sd);
+        char * client_commit = strstr(_client_commit, "\n");
+        client_commit = strstr(&client_commit[1], "\n");
+        client_commit = strstr(&client_commit[1], "\n");
+        client_commit = &client_commit[1];
+        printf("commit file: %s\n", client_commit);
+        // Read into linked list struct
+        commit_entry * cli_cmm = read_commit_file(client_commit);
+        free(_client_commit);
+        int num_commits = get_commit_count(proj_name);
+        int cur_commit = 1;
+        int found_match = FALSE;
+        char * server_commit;
+        /* when we get the commit file, we make a linked list out of it and then compare all other commits to see if one exists */
+        for (cur_commit = 1; cur_commit <= num_commits; cur_commit++)
+        {
+                server_commit = fetch_commit_file(proj_name, TRUE, cur_commit);
+                commit_entry * srvr_cm = read_commit_file(server_commit);
+                free(server_commit);
+                if (strcmp(srvr_cm->hash_code, cli_cmm->hash_code) == 0)
+                {
+                        found_match = TRUE;
+                        break;
+                }
+                free_commit_list(srvr_cm);
+        }
+        if (!found_match)
+        {
+                fprintf(stderr, "[push] No matching commit found.\n");
+                free_commit_list(cli_cmm);
+                /* Unmark as another thread as accessing */
+                pthread_mutex_lock(&access_lock);
+                num_access--;
+                pthread_mutex_unlock(&access_lock);
+                pthread_mutex_unlock(lock);
+        }
+
         /* read decompressed file which will tell us the entire log of files that are changed with the files themselves */
 
-        /* when we get the commit file, we make a linked list out of it and then compare all other commits to see if one exists */
 
         /* compress and take a backup of the current project_manifest/directory and store in server_backups/ */
         int project_dir_path_size = strlen(".server_repo/") + strlen(proj_name) + 1;
@@ -418,14 +457,50 @@ int push_handler(int sd, char * proj_name)
         char * current_version_zip = recursive_zip(project_dir_path, TRUE);
         int compressed_size;
         char * compressed = _compress(current_version_zip, &compressed_size);
-
-        /* fetch current version and write zip to .server_backups */
-
         free(current_version_zip);
+        /* write zip to .server_backups */
+        if (!dir_exists(".server_bck"))
+        {
+                if(make_dir(".server_bck", __FILE__, __LINE__) != 0)
+                {
+                        free(compressed);
+                        free_commit_list(cli_cmm);
+                        /* Unmark as another thread as accessing */
+                        pthread_mutex_lock(&access_lock);
+                        num_access--;
+                        pthread_mutex_unlock(&access_lock);
+                        pthread_mutex_unlock(lock);
+                        return 1;
+                }
+        }
+        int diff;
+        int cur_version =  get_version(project_dir_path, project_dir_path, &diff);
+        char cur_version_str[128];
+        bzero(cur_version_str, 128);
+        sprintf(cur_version_str, "%d", cur_version);
+        char backup[strlen(".server_bck/") + strlen(proj_name)+strlen(cur_version_str)+1];
+        bzero(backup, strlen(".server_bck/") + strlen(proj_name)+strlen(cur_version_str)+1);
+        sprintf(backup, ".server_bck/%s%s", proj_name, cur_version_str);
+        int fd = open(backup, O_WRONLY | O_CREAT | O_TRUNC, 00600);
+        if (better_write(fd, compressed, compressed_size, __FILE__, __LINE__) != 1)
+        {
+                free(compressed);
+                free_commit_list(cli_cmm);
+                /* Unmark as another thread as accessing */
+                pthread_mutex_lock(&access_lock);
+                num_access--;
+                pthread_mutex_unlock(&access_lock);
+                pthread_mutex_unlock(lock);
+                return 1;
+        }
         free(compressed);
 
-        /* iterate through eachf ile and make sure that these changes are being logged to .histroy */
 
+        // fetch current version from client
+        // char * cur_version = receive_file(sd);
+
+        /* iterate through each file and make sure that these changes are being logged to .histroy */
+        free_commit_list(cli_cmm);
         /* Unmark as another thread as accessing */
         pthread_mutex_lock(&access_lock);
         num_access--;

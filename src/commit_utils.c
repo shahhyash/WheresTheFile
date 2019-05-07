@@ -44,7 +44,8 @@ char * fetch_commit_file(char * proj_name, int is_server, int commit_id)
     int file_length = lseek(fd, 0, SEEK_END);
     lseek(fd, 0, SEEK_SET);
 
-    char * file = (char*) malloc(sizeof(char) * file_length);
+    char * file = (char*) malloc(sizeof(char) * (file_length+1));
+    bzero(file, file_length+1);
     if (better_read(fd, file, file_length, __FILE__, __LINE__) <= 0)
     {
         fprintf(stderr, "[fetch_commit_file] ERROR: Unable to read .commit file.\n");
@@ -117,12 +118,7 @@ commit_entry * read_commit_file(char * file_contents)
 
 void free_commit_list(commit_entry * root)
 {
-    while(root)
-    {
-        commit_entry * next = root->next;
         free(root->file_path);
         free(root->hash_code);
         free(root);
-        root = next;
-    }
 }

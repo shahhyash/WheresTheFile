@@ -207,9 +207,10 @@ void * client_comm(void * args)
                         }
                 }
         }
-        else if (strcmp(command, "com") == 0) /* com for commit */
+        else if (strcmp(command, "pus") == 0) /* fet for "fetch file" */
         {
-                if (receive_commit(sd, proj_name))
+                /* kind of hacking it where client actualy sent file path to server not project name */
+                if (push_handler(sd, proj_name))
                 {
                         if (better_send(sd, "Error: Project does not exist.", 30, 0, __FILE__, __LINE__) <= 0)
                         {
@@ -219,10 +220,20 @@ void * client_comm(void * args)
                                 pthread_exit(NULL);
                         }
                 }
+                else
+                {
+                        if (better_send(sd, "Pushed project successfully!  ", 30, 0, __FILE__, __LINE__) <= 0)
+                        {
+                                fprintf(stderr, "[client_comm] Error returned by better_send. FILE: %s. LINE: %d\n", __FILE__, __LINE__);
+                                close(sd);
+                                printf("Disconnected client.\n");
+                                pthread_exit(NULL);
+                        }
+                }
         }
-        else if (strcmp(command, "pus") == 0) /* pus for push */
+        else if (strcmp(command, "com") == 0) /* com for commit */
         {
-                if (push_handler(sd, proj_name))
+                if (receive_commit(sd, proj_name))
                 {
                         if (better_send(sd, "Error: Project does not exist.", 30, 0, __FILE__, __LINE__) <= 0)
                         {
@@ -276,6 +287,8 @@ void termination_handler (int signum)
         }
         printf("Server closed.\n");
         remove_dir(".server_repo");
+        if (dir_exists(".server_bck"))
+                remove_dir(".server_bck");
 }
 
 int main(int argc, char * argv[])
