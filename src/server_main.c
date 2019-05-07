@@ -304,6 +304,11 @@ int main(int argc, char * argv[])
                 fprintf(stderr, "Error making .server_repo\n");
                 exit(EXIT_FAILURE);
         }
+        if(make_dir(".server_bck", __FILE__, __LINE__) != 0)
+        {
+                fprintf(stderr, "Error making .server_bck\n");
+                exit(EXIT_FAILURE);
+        }
         // Setup signals
         struct sigaction new_action, old_action;
         /* Set up the structure to specify the new action. */

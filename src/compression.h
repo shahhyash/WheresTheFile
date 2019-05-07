@@ -25,6 +25,6 @@ char * recursive_zip(char * filename, int is_server);
 /*
  *      Reads through zipped buffer and creates a file/directory for each item.
  */
-void recursive_unzip(char * zip_buf);
+void recursive_unzip(char * zip_buf, int is_server);
 
 #endif

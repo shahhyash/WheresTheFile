@@ -400,7 +400,7 @@ int _checkout(char * proj_name)
         }
         char * decompressed = receive_file(sock);
         printf("decompressed %s\n", decompressed);
-        recursive_unzip(decompressed);
+        recursive_unzip(decompressed, FALSE);
         free(decompressed);
         return 0;
 }
@@ -1163,6 +1163,24 @@ int _push(char * proj_name)
                 fprintf(stderr, "[push] Error fetching commit file. Please run commit before running push\n");
                 return 1;
         }
+
+        free(commit_contents);
+        int s = init_socket();
+        if (s == -1)
+        {
+                fprintf(stderr, "[_commit] Error connecting to server.");
+                return 1;
+        }
+
+        /* fetch manifest file from server and store in a linked list - if it is unable to fetch from server it might not be a valid project */
+        char * manifest_contents = fetch_server_manifest(s, proj_name);
+        if (manifest_contents == NULL)
+        {
+                fprintf(stderr, "[_commit] Error fetching manifest. FILE %s. LINE: %d.\n", __FILE__, __LINE__);
+                return 1;
+        }
+        close(s);
+        free(manifest_contents);
         int sd = init_socket();
         if (send_cmd_proj(sd, proj_name, "pus"))
                 return 1;
@@ -1174,12 +1192,17 @@ int _push(char * proj_name)
         {
                 return 1;
         }
+        if (compress_and_send(sd, proj_name, FALSE))
+        {
+                return 1;
+        }
+
+
         char buffer[31] = {0};
         printf("-->Sent message successfully.\n");
         if (better_read( sd , buffer, 30, __FILE__, __LINE__) != 1)
                 return 1;
         printf("Message from server:\t%s\n", buffer);
-        exit(0);
         // commit_entry * commits = read_commit_file(commit_contents);
 
         /* TODO: From here on, we need to compile a list of files that need to be sent to the server and send them out */

@@ -173,17 +173,27 @@ char * recursive_zip(char * _filename, int is_server)
 /*
  *      Reads through zipped buffer and creates a file/directory for each item.
  */
-void recursive_unzip(char * zip_buf)
+void recursive_unzip(char * zip_buf, int is_server)
 {
         int size = strlen(zip_buf);
         int i = 0;
         while (i < size)
         {
                 // Read file name
+                char _nameBuf[1024];
+                bzero(_nameBuf, 1024);
+                sscanf(&zip_buf[i], "%s\n", _nameBuf);
+                printf("%s\n", _nameBuf);
                 char nameBuf[1024];
-                bzero(nameBuf, 1024);
-                sscanf(&zip_buf[i], "%s\n", nameBuf);
-                printf("%s\n", nameBuf);
+                if (is_server)
+                {
+                        bzero(nameBuf, 1024);
+                        sprintf(nameBuf, ".server_repo/%s", nameBuf);
+                }
+                else
+                {
+                        strcpy(nameBuf, _nameBuf);
+                }
                 i += strlen(nameBuf)+1;
                 // Read type of file: F file OR D directory
                 char type[2] = {0,0};

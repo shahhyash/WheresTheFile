@@ -445,6 +445,19 @@ int push_handler(int sd, char * proj_name)
                 pthread_mutex_unlock(&access_lock);
                 pthread_mutex_unlock(lock);
         }
+        else
+        {
+                // delete all commits
+                for (cur_commit = 1; cur_commit <= num_commits; cur_commit++)
+                {
+                        char num[128];
+                        bzero(num, 128);
+                        sprintf(num, "%d", cur_commit);
+                        char old[strlen(proj_name)+strlen(".server_bck")+1+strlen(num)+1];
+                        sprintf(old, ".server_bck/%s%s", proj_name, num);
+                        remove(old);
+                }
+        }
 
         /* read decompressed file which will tell us the entire log of files that are changed with the files themselves */
 
@@ -459,20 +472,6 @@ int push_handler(int sd, char * proj_name)
         char * compressed = _compress(current_version_zip, &compressed_size);
         free(current_version_zip);
         /* write zip to .server_backups */
-        if (!dir_exists(".server_bck"))
-        {
-                if(make_dir(".server_bck", __FILE__, __LINE__) != 0)
-                {
-                        free(compressed);
-                        free_commit_list(cli_cmm);
-                        /* Unmark as another thread as accessing */
-                        pthread_mutex_lock(&access_lock);
-                        num_access--;
-                        pthread_mutex_unlock(&access_lock);
-                        pthread_mutex_unlock(lock);
-                        return 1;
-                }
-        }
         int diff;
         int cur_version =  get_version(project_dir_path, project_dir_path, &diff);
         char cur_version_str[128];
@@ -495,9 +494,13 @@ int push_handler(int sd, char * proj_name)
         }
         free(compressed);
 
+        // fetch current version of files from client
+        remove_dir(project_dir_path);
+        char * cur_files = receive_file(sd);
+        printf("%s\n", cur_files);
+        // recursive_unzip(cur_files, TRUE);
+        free(cur_files);
 
-        // fetch current version from client
-        // char * cur_version = receive_file(sd);
 
         /* iterate through each file and make sure that these changes are being logged to .histroy */
         free_commit_list(cli_cmm);
