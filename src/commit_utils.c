@@ -38,6 +38,8 @@ char * fetch_commit_file(char * proj_name, int is_server, int commit_id)
     if (fd == -1)
     {
         fprintf(stderr, "[fetch_commit_file] ERROR: Unable to open manifest file %s for project %s.\n", commit_path, proj_name);
+        free(commit_path);
+        close(fd);
         return NULL;
     }
 
@@ -49,6 +51,9 @@ char * fetch_commit_file(char * proj_name, int is_server, int commit_id)
     if (better_read(fd, file, file_length, __FILE__, __LINE__) <= 0)
     {
         fprintf(stderr, "[fetch_commit_file] ERROR: Unable to read .commit file.\n");
+        free(commit_path);
+        free(file);
+        close(fd);
         return NULL;
     }
 

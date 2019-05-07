@@ -142,16 +142,8 @@ int main(int argc, char * argv[])
         }
         else
         {
-                int sock = init_socket();
-
-                char *msg = "cre004test";
-
-                char buffer[1024] = {0};
-                better_send(sock , msg , strlen(msg) , 0, __FILE__, __LINE__);
-
-                printf("-->Sent message successfully.\n");
-                read( sock , buffer, 1024);
-                printf("Message from server:\t%s\n",buffer );
+                fprintf(stderr, "Error: please use a valid command.\n");
+                return 1;
         }
         if (ret == 0)
                 printf("Command executed successfully.\n");

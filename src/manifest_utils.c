@@ -346,6 +346,14 @@ int get_version(char * proj_name, char * filename, int * is_dif_ver)
  */
 char * hash(char * data)
 {
+        if (data == NULL)
+                return NULL;
+        if (strlen(data) == 0)
+        {
+                char * hex_hash = (char *) malloc(sizeof(char));
+                *hex_hash = '\0';
+                return hex_hash;
+        }
         unsigned char hash[SHA256_DIGEST_LENGTH];
         SHA256((const unsigned char *) data, strlen(data), hash);
         char * hex_hash = (char *) malloc(sizeof(char)*(SHA256_DIGEST_LENGTH*2+1));

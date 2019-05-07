@@ -933,7 +933,7 @@ int _commit(char * proj_name)
         free(manifest_contents);
 
         /* compare server and client manifest versions */
-        printf("%d vs %d", client_manifest->version, server_manifest->version);
+        // printf("%d vs %d", client_manifest->version, server_manifest->version);
         if (client_manifest->version != server_manifest->version)
         {
                 fprintf(stderr, "ERROR: Server has a newer copy than your current version. Run update to checkout these changes before you run commit.\n");
@@ -1046,7 +1046,18 @@ int _commit(char * proj_name)
 
                 server_ptr = server_ptr->next;
         }
-
+        lseek(fd_commit, 0, SEEK_SET);
+        int sz = lseek(fd_commit, 0, SEEK_END);
+        if (sz == 0)
+        {
+                printf("[commit] Already up to date.\n");
+                close(fd_commit);
+                remove(commit_path);
+                free_manifest(server_manifest);
+                free_manifest(client_manifest);
+                free_manifest(updated_client_manifest);
+                return 0;
+        }
         close(fd_commit);
 
         /* initiate connection to server, send start message to inform server that you're sending over a commit */
@@ -1135,9 +1146,17 @@ int _history(char * proj_name)
         if (better_read(sd, buf, 30, __FILE__, __LINE__) != 1)
                 return 1;
         printf("Message received from server: %s\n", buf);
-        if (strcmp(buf, "Error: Project does not exist.") == 0)
+        if (strcmp(buf, "Error: Project/history does not exist.") == 0)
         {
                 fprintf(stderr, "Server returned error.\n");
+                return 1;
+        }
+        char msg[31] = {0};
+        if (better_read(sd, msg, 30, __FILE__, __LINE__) != 1)
+                return 1;
+        printf("New Message received from server: %s\n", msg);
+        if (strncmp("Ok!", msg, 3) != 0)
+        {
                 return 1;
         }
         char * decompressed = receive_file(sd);
@@ -1180,6 +1199,7 @@ int _push(char * proj_name)
         if(commit_contents == NULL)
         {
                 fprintf(stderr, "[push] Error fetching commit file. Please run commit before running push\n");
+                free(commit_contents);
                 return 1;
         }
 

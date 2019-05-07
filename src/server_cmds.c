@@ -283,9 +283,26 @@ int history(int sd, char * proj_name)
         pthread_mutex_lock(&access_lock);
         num_access++;
         pthread_mutex_unlock(&access_lock);
-        char hist_file[strlen(proj_name)+strlen(".server_repo/")+strlen("/.history")+1];
-        bzero(hist_file, strlen(proj_name)+strlen(".server_repo/")+strlen("/.history")+1);
-        sprintf(hist_file, ".server_repo/%s/.history", proj_name);
+        char hist_file[strlen(proj_name)+strlen(".server_bck/")+strlen("/.history")+1];
+        bzero(hist_file, strlen(proj_name)+strlen(".server_bck/")+strlen("/.history")+1);
+        sprintf(hist_file, ".server_bck/%s/.history", proj_name);
+        if (!file_exists(hist_file))
+        {
+                pthread_mutex_lock(&access_lock);
+                num_access--;
+                pthread_mutex_unlock(&access_lock);
+                pthread_mutex_unlock(lock);
+                fprintf(stderr, "[history] No history for this file.\n");
+                return 1;
+        }
+        if (better_send(sd, "Ok!                          !", 30, 0, __FILE__, __LINE__) != 1)
+        {
+                pthread_mutex_lock(&access_lock);
+                num_access--;
+                pthread_mutex_unlock(&access_lock);
+                pthread_mutex_unlock(lock);
+                return 1;
+        }
         if (compress_and_send(sd, hist_file, TRUE))
         {
                 pthread_mutex_lock(&access_lock);
@@ -545,7 +562,9 @@ int push_handler(int sd, char * proj_name)
 
         // Receive client's compress file
         char * _client_commit = receive_file(sd);
+
         char * client_commit = strstr(_client_commit, "\n");
+        printf("client %s\n", client_commit);
         client_commit = strstr(&client_commit[1], "\n");
         client_commit = strstr(&client_commit[1], "\n");
         client_commit = &client_commit[1];
@@ -665,9 +684,16 @@ int push_handler(int sd, char * proj_name)
         // increment manifest number
 
         /* iterate through each file and make sure that these changes are being logged to .histroy */
-        int h_size = strlen(".server_repo/") + strlen(proj_name) + strlen("/.history")+ 1;
+        int h_size = strlen(".server_bck/") + strlen(proj_name) + strlen("/.history")+ 1;
         char his_f[h_size];
-        sprintf(his_f, ".server_repo/%s/.history", proj_name);
+        bzero(his_f, h_size);
+        char proj_bck[strlen(".server_bck/") + strlen(proj_name)+ 1];
+        sprintf(proj_bck, ".server_bck/%s", proj_name);
+        if (!dir_exists(proj_bck))
+        {
+                make_dir(proj_bck, __FILE__, __LINE__);
+        }
+        sprintf(his_f, ".server_bck/%s/.history", proj_name);
         int hd = open(his_f, O_RDWR | O_CREAT, 00600);
         lseek(hd, 0, SEEK_END);
         char num_buf[128];

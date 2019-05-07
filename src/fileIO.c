@@ -187,7 +187,6 @@ void remove_dir(char * dir)
 int compress_and_send(int sd, char * name, int is_server)
 {
         char * zipped = recursive_zip(name, is_server);
-        // printf("zipped %s\n", zipped);
         int zipped_size = strlen(zipped);
         int num_digits = 0;
         int i = zipped_size;
@@ -225,6 +224,7 @@ int compress_and_send(int sd, char * name, int is_server)
         free(zipped);
         char c_s_str[10] = {0,0,0,0,0,0,0,0,0,0};
         sprintf(c_s_str, "%d", c_s);
+        printf("Compressed size: %d\n", c_s);
         // Send compressed file
         if (send_file(sd, compressed, c_s_str))
         {
@@ -264,7 +264,7 @@ int send_file(int sd, char * buf, char * filesize)
         // Send file bytes
         int f_size_num;
         sscanf(filesize, "%d", &f_size_num);
-        // printf("sending file %s\n", buf);
+        printf("sending file %s %d\n", filesize, f_size_num);
         if (better_send(sd, buf, f_size_num, 0, __FILE__, __LINE__) != 1)
                 return 1;
         return 0;
@@ -282,6 +282,7 @@ char * receive_file(int sd)
                 return NULL;
         int d_file_size_length;
         sscanf(d_length_size, "%d", &d_file_size_length);
+        // printf("decompressed file size length: %d\n", d_file_size_length);
         // Read decompressed file size
         char d_file_size_str[1+d_file_size_length];
         bzero(d_file_size_str, 1+d_file_size_length);
@@ -289,12 +290,14 @@ char * receive_file(int sd)
                 return NULL;
         int d_file_size;
         sscanf(d_file_size_str, "%d", &d_file_size);
+        // printf("decompressed file size: %d\n", d_file_size);
         // Read size of file length
         char length_size[4] = {0,0,0,0};
         if (better_read(sd , length_size , 3, __FILE__, __LINE__) <= 0)
                 return NULL;
         int file_size_length;
         sscanf(length_size, "%d", &file_size_length);
+        // printf("file size length: %d\n", file_size_length);
         // Read file size
         char file_size_str[1+file_size_length];
         bzero(file_size_str, 1+file_size_length);
@@ -303,13 +306,14 @@ char * receive_file(int sd)
         // Read file bytes
         int file_size;
         sscanf(file_size_str, "%d", &file_size);
+        // printf("file size: %d\n", file_size);
         char file[file_size+1];
         bzero(file, file_size+1);
         if (better_read(sd , file , file_size, __FILE__, __LINE__) <= 0)
                 return NULL;
         // decompress file
-        // printf("file: %s\n", file);
         char * decompressed = _decompress(file, d_file_size, file_size);
+        // printf("decompressed : %s\n", decompressed);
         return decompressed;
 }
 
