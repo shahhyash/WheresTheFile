@@ -1103,9 +1103,9 @@ int _rollback(char * proj_name, char * version)
                 }
         }
         int ver = atoi(version);
-        if (ver <= 0)
+        if (ver <= 1)
         {
-                fprintf(stderr, "[rollback] Invalid version entered.\n");
+                fprintf(stderr, "[rollback] Invalid version entered. (Starts at 2)\n");
                 return 1;
         }
 

@@ -98,6 +98,7 @@ void * client_comm(void * args)
                                 fprintf(stderr, "[client_comm] Error returned by better_send. FILE: %s. LINE: %d\n", __FILE__, __LINE__);
                                 close(sd);
                                 printf("Disconnected client.\n");
+                                free(proj_name);
                                 pthread_exit(NULL);
                         }
                 }
@@ -108,6 +109,7 @@ void * client_comm(void * args)
                                 fprintf(stderr, "[client_comm] Error returned by better_send. FILE: %s. LINE: %d\n", __FILE__, __LINE__);
                                 close(sd);
                                 printf("Disconnected client.\n");
+                                free(proj_name);
                                 pthread_exit(NULL);
                         }
                 }
@@ -122,6 +124,7 @@ void * client_comm(void * args)
                                 fprintf(stderr, "[client_comm] Error returned by better_send. FILE: %s. LINE: %d\n", __FILE__, __LINE__);
                                 close(sd);
                                 printf("Disconnected client.\n");
+                                free(proj_name);
                                 pthread_exit(NULL);
                         }
                 }
@@ -132,6 +135,7 @@ void * client_comm(void * args)
                                 fprintf(stderr, "[client_comm] Error returned by better_send. FILE: %s. LINE: %d\n", __FILE__, __LINE__);
                                 close(sd);
                                 printf("Disconnected client.\n");
+                                free(proj_name);
                                 pthread_exit(NULL);
                         }
                 }
@@ -145,6 +149,7 @@ void * client_comm(void * args)
                                 fprintf(stderr, "[client_comm] Error returned by better_send. FILE: %s. LINE: %d\n", __FILE__, __LINE__);
                                 close(sd);
                                 printf("Disconnected client.\n");
+                                free(proj_name);
                                 pthread_exit(NULL);
                         }
                 }
@@ -155,6 +160,7 @@ void * client_comm(void * args)
                                 fprintf(stderr, "[client_comm] Error returned by better_send. FILE: %s. LINE: %d\n", __FILE__, __LINE__);
                                 close(sd);
                                 printf("Disconnected client.\n");
+                                free(proj_name);
                                 pthread_exit(NULL);
                         }
                 }
@@ -168,6 +174,7 @@ void * client_comm(void * args)
                                 fprintf(stderr, "[client_comm] Error returned by better_send. FILE: %s. LINE: %d\n", __FILE__, __LINE__);
                                 close(sd);
                                 printf("Disconnected client.\n");
+                                free(proj_name);
                                 pthread_exit(NULL);
                         }
                 }
@@ -178,6 +185,7 @@ void * client_comm(void * args)
                                 fprintf(stderr, "[client_comm] Error returned by better_send. FILE: %s. LINE: %d\n", __FILE__, __LINE__);
                                 close(sd);
                                 printf("Disconnected client.\n");
+                                free(proj_name);
                                 pthread_exit(NULL);
                         }
                 }
@@ -193,6 +201,7 @@ void * client_comm(void * args)
                                 fprintf(stderr, "[client_comm] Error returned by better_send. FILE: %s. LINE: %d\n", __FILE__, __LINE__);
                                 close(sd);
                                 printf("Disconnected client.\n");
+                                free(proj_name);
                                 pthread_exit(NULL);
                         }
                 }
@@ -203,6 +212,7 @@ void * client_comm(void * args)
                                 fprintf(stderr, "[client_comm] Error returned by better_send. FILE: %s. LINE: %d\n", __FILE__, __LINE__);
                                 close(sd);
                                 printf("Disconnected client.\n");
+                                free(proj_name);
                                 pthread_exit(NULL);
                         }
                 }
@@ -217,6 +227,7 @@ void * client_comm(void * args)
                                 fprintf(stderr, "[client_comm] Error returned by better_send. FILE: %s. LINE: %d\n", __FILE__, __LINE__);
                                 close(sd);
                                 printf("Disconnected client.\n");
+                                free(proj_name);
                                 pthread_exit(NULL);
                         }
                 }
@@ -227,6 +238,7 @@ void * client_comm(void * args)
                                 fprintf(stderr, "[client_comm] Error returned by better_send. FILE: %s. LINE: %d\n", __FILE__, __LINE__);
                                 close(sd);
                                 printf("Disconnected client.\n");
+                                free(proj_name);
                                 pthread_exit(NULL);
                         }
                 }
@@ -241,6 +253,7 @@ void * client_comm(void * args)
                                 fprintf(stderr, "[client_comm] Error returned by better_send. FILE: %s. LINE: %d\n", __FILE__, __LINE__);
                                 close(sd);
                                 printf("Disconnected client.\n");
+                                free(proj_name);
                                 pthread_exit(NULL);
                         }
                 }
@@ -251,6 +264,33 @@ void * client_comm(void * args)
                                 fprintf(stderr, "[client_comm] Error returned by better_send. FILE: %s. LINE: %d\n", __FILE__, __LINE__);
                                 close(sd);
                                 printf("Disconnected client.\n");
+                                free(proj_name);
+                                pthread_exit(NULL);
+                        }
+                }
+        }
+        else if (strcmp(command, "rol") == 0) /* fet for "fetch file" */
+        {
+                /* kind of hacking it where client actualy sent file path to server not project name */
+                if (rollback(sd, proj_name))
+                {
+                        if (better_send(sd, "Error: Project does not exist.", 30, 0, __FILE__, __LINE__) <= 0)
+                        {
+                                fprintf(stderr, "[client_comm] Error returned by better_send. FILE: %s. LINE: %d\n", __FILE__, __LINE__);
+                                close(sd);
+                                printf("Disconnected client.\n");
+                                free(proj_name);
+                                pthread_exit(NULL);
+                        }
+                }
+                else
+                {
+                        if (better_send(sd, "Rolled back successfully!     ", 30, 0, __FILE__, __LINE__) <= 0)
+                        {
+                                fprintf(stderr, "[client_comm] Error returned by better_send. FILE: %s. LINE: %d\n", __FILE__, __LINE__);
+                                close(sd);
+                                printf("Disconnected client.\n");
+                                free(proj_name);
                                 pthread_exit(NULL);
                         }
                 }
@@ -264,6 +304,7 @@ void * client_comm(void * args)
                                 fprintf(stderr, "[client_comm] Error returned by better_send. FILE: %s. LINE: %d\n", __FILE__, __LINE__);
                                 close(sd);
                                 printf("Disconnected client.\n");
+                                free(proj_name);
                                 pthread_exit(NULL);
                         }
                 }
@@ -276,10 +317,12 @@ void * client_comm(void * args)
                         fprintf(stderr, "[client_comm] Error returned by better_read. FILE: %s. LINE: %d\n", __FILE__, __LINE__);
                         close(sd);
                         printf("Disconnected client.\n");
+                        free(proj_name);
                         pthread_exit(NULL);
                 }
                 close(sd);
                 printf("Disconnected client.\n");
+                free(proj_name);
                 pthread_exit(NULL);
         }
         /*

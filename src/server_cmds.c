@@ -161,6 +161,14 @@ int destroy(char * proj_name)
         }
         printf("removing directory: %s\n", new_proj_name);
         remove_dir(new_proj_name);
+        char bck_dir[strlen(proj_name)+1+strlen(".server_bck/")];
+        bzero(bck_dir, strlen(proj_name)+1+strlen(".server_bck/"));
+        sprintf(bck_dir, ".server_bck/%s", proj_name);
+        if (dir_exists(bck_dir))
+        {
+                remove_dir(bck_dir);
+        }
+
         pthread_mutex_lock(&access_lock);
         num_access--;
         pthread_mutex_unlock(&access_lock);
@@ -344,7 +352,7 @@ int rollback(int sd, char * proj_name)
 
         int ret = 0;
         int rollback_version;
-        if(better_read(sd, (char*) &rollback_version, sizeof(int), __FILE__, __LINE__))
+        if(better_read(sd, (char*) &rollback_version, sizeof(int), __FILE__, __LINE__) != 1)
         {
                 fprintf(stderr, "[rollback] ERROR: Unable to read rollback version from client.\n");
                 ret = 1;
@@ -361,14 +369,14 @@ int rollback(int sd, char * proj_name)
 
         /* rollback version should be less than current version to be valid */
         /* commit version should be greater than 1 otherwise there can't be a backup version */
-        if (ret == 0 && current_version > 1 && rollback_version < current_version)
+        if (ret == 0 && current_version > 2 && rollback_version < current_version)
         {
                 char rollback_version_str[128];
                 bzero(rollback_version_str, 128);
                 sprintf(rollback_version_str, "%d", rollback_version);
-                char backup[strlen(".server_bck/") + strlen(proj_name)+strlen(rollback_version_str)+2];
-                bzero(backup, strlen(".server_bck/") + strlen(proj_name)+strlen(rollback_version_str)+2);
-                sprintf(backup, ".server_bck/%s_%s", proj_name, rollback_version_str);
+                char backup[strlen(".server_bck/") +strlen(proj_name)+1+ strlen(proj_name)+strlen(rollback_version_str)+2];
+                bzero(backup, strlen(".server_bck/") +strlen(proj_name)+1+ strlen(proj_name)+strlen(rollback_version_str)+2);
+                sprintf(backup, ".server_bck/%s/%s_%s", proj_name, proj_name, rollback_version_str);
 
                 if (file_exists(backup))
                 {
@@ -388,16 +396,15 @@ int rollback(int sd, char * proj_name)
                                         char version_str[128];
                                         bzero(version_str, 128);
                                         sprintf(version_str, "%d", version);
-                                        char to_delete[strlen(".server_bck/") + strlen(proj_name)+strlen(version_str)+2];
-                                        bzero(backup, strlen(".server_bck/") + strlen(proj_name)+strlen(version_str)+2);
-                                        sprintf(backup, ".server_bck/%s_%s", proj_name, version_str);
+                                        char to_delete[strlen(".server_bck/") +strlen(proj_name)+1+ strlen(proj_name)+strlen(version_str)+2];
+                                        bzero(backup, strlen(".server_bck/") +strlen(proj_name)+1+ strlen(proj_name)+strlen(version_str)+2);
+                                        sprintf(backup, ".server_bck/%s/%s_%s", proj_name, proj_name, version_str);
 
                                         remove(to_delete);
                                 }
                         }
 
                         /* backupexists! let's revert it now */
-                        int fd = open(backup, O_RDWR, 00600);
 
                         // int length = fseek(fd, 0, SEEK_END);
                         // fseek(fd, 0, SEEK_SET);
@@ -405,11 +412,30 @@ int rollback(int sd, char * proj_name)
                         // char compressed[length+1];
                         // better_read(fd, compressed, length, __FILE__, __LINE__);
                         // compressed[length] = '\0';
+                        // write metadata:m decompressed size \t compressed size
+                        FILE * fp = fopen(backup, "r");
+                        int decompressed_size, compressed_size;
+                        fscanf(fp, "%d\t", &decompressed_size);
+                        fscanf(fp, "%d\n", &compressed_size);
+                        fclose(fp);
+                        char buf[compressed_size+1];
+                        int fd = open(backup, O_RDONLY, 00600);
+                        int size = lseek(fd, 0, SEEK_END);
+                        lseek(fd, 0, SEEK_SET);
+                        char file[size+1];
+                        bzero(file, size+1);
+                        better_read(fd, file, size, __FILE__, __LINE__);
+                        close(fd);
+                        int i = 0;
+                        while (file[i++] != '\n');
+                        printf("%d\n", i);
 
-                        char * decompressed = receive_file(fd);
+                        // printf("%d %d\n", decompressed_size, compressed_size);
+                        char * decompressed = _decompress(&file[i], decompressed_size, compressed_size);
+                        printf("decompressed %s\n", decompressed);
                         recursive_unzip(decompressed, TRUE);
 
-                        close(fd);
+                        free(decompressed);
                         remove(backup);
                 }
                 else
@@ -617,7 +643,12 @@ int push_handler(int sd, char * proj_name)
 
         /* read decompressed file which will tell us the entire log of files that are changed with the files themselves */
 
-
+        char proj_bck[strlen(".server_bck/") + strlen(proj_name)+ 1];
+        sprintf(proj_bck, ".server_bck/%s", proj_name);
+        if (!dir_exists(proj_bck))
+        {
+                make_dir(proj_bck, __FILE__, __LINE__);
+        }
         /* compress and take a backup of the current project_manifest/directory and store in server_backups/ */
         int project_dir_path_size = strlen(".server_repo/") + strlen(proj_name) + 1;
         char project_dir_path[project_dir_path_size];
@@ -626,17 +657,34 @@ int push_handler(int sd, char * proj_name)
         char * current_version_zip = recursive_zip(project_dir_path, TRUE);
         int compressed_size;
         char * compressed = _compress(current_version_zip, &compressed_size);
-        free(current_version_zip);
+
         /* write zip to .server_backups */
         int diff;
         int cur_version =  get_version(project_dir_path, project_dir_path, &diff);
         char cur_version_str[128];
         bzero(cur_version_str, 128);
         sprintf(cur_version_str, "%d", cur_version);
-        char backup[strlen(".server_bck/") + strlen(proj_name)+strlen(cur_version_str)+2];
-        bzero(backup, strlen(".server_bck/") + strlen(proj_name)+strlen(cur_version_str)+2);
-        sprintf(backup, ".server_bck/%s_%s", proj_name, cur_version_str);
+        char backup[strlen(".server_bck/") + strlen(proj_name)+ 1+ strlen(proj_name)+strlen(cur_version_str)+2];
+        bzero(backup, strlen(".server_bck/") +strlen(proj_name)+ 1+ strlen(proj_name)+strlen(cur_version_str)+2);
+        sprintf(backup, ".server_bck/%s/%s_%s", proj_name, proj_name, cur_version_str);
         int fd = open(backup, O_WRONLY | O_CREAT | O_TRUNC, 00600);
+        char metadata[128];
+        bzero(metadata, 128);
+        // write metadata:m decompressed size \t compressed size
+        sprintf(metadata, "%d\t%d\n", strlen(current_version_zip), compressed_size);
+        free(current_version_zip);
+        if (better_write(fd, metadata, strlen(metadata), __FILE__, __LINE__) != 1)
+        {
+
+                free(_client_commit);
+                free(compressed);
+                /* Unmark as another thread as accessing */
+                pthread_mutex_lock(&access_lock);
+                num_access--;
+                pthread_mutex_unlock(&access_lock);
+                pthread_mutex_unlock(lock);
+                return 1;
+        }
         if (better_write(fd, compressed, compressed_size, __FILE__, __LINE__) != 1)
         {
 
@@ -687,12 +735,7 @@ int push_handler(int sd, char * proj_name)
         int h_size = strlen(".server_bck/") + strlen(proj_name) + strlen("/.history")+ 1;
         char his_f[h_size];
         bzero(his_f, h_size);
-        char proj_bck[strlen(".server_bck/") + strlen(proj_name)+ 1];
-        sprintf(proj_bck, ".server_bck/%s", proj_name);
-        if (!dir_exists(proj_bck))
-        {
-                make_dir(proj_bck, __FILE__, __LINE__);
-        }
+
         sprintf(his_f, ".server_bck/%s/.history", proj_name);
         int hd = open(his_f, O_RDWR | O_CREAT, 00600);
         lseek(hd, 0, SEEK_END);
